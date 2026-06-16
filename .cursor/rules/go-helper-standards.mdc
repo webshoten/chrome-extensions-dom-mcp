@@ -1,0 +1,53 @@
+---
+description: Chrome DOM Bridge MCPのGoヘルパー実装ルール
+globs: **/*.go
+alwaysApply: false
+---
+
+# Goヘルパー実装ルール
+
+## パッケージ構成
+
+- `cmd/dom-bridge/main.go`: 設定読み込み、依存生成、MCP/WS起動だけを書く。業務ロジックを書かない。
+- `internal/mcp`: MCP stdioサーバー、tool登録、request/response変換だけを書く。
+- `internal/ws`: localhost WSサーバー、認証、client管理、ping/pong、timeoutだけを書く。
+- `internal/usecase`: `get_dom`、`click`、`fill`、`navigate` などの処理本体を書く。MCP/WSをimportしない。
+- `internal/protocol`: WSメッセージ、tool payload、error code、result modelの型を書く。
+- `internal/config`: 設定ファイル、環境変数、default、validationを書く。
+- `internal/logging`: logger初期化と機微情報のredactionを書く。
+
+## 依存方向
+
+- `cmd` はすべての `internal/*` をimportしてよい。
+- `internal/mcp` と `internal/ws` は `usecase`、`protocol`、`config`、`logging` をimportしてよい。
+- `internal/usecase` は `protocol` と小さいinterfaceだけを使う。
+- `internal/usecase` から `internal/mcp`、`internal/ws`、`net/http`、WebSocketライブラリをimportしない。
+- interfaceは「使う側」に置く。大きなinterfaceを作らない。
+
+## エラー処理
+
+- errorを握りつぶさない。意図的に無視する場合は短い理由を書く。
+- errorは文脈を付けてwrapする: `fmt.Errorf("start websocket server: %w", err)`。
+- ユーザーに見せる可能性があるエラーは分類する: port使用中、拡張未接続、認証失敗、timeout。
+- 実行時エラーで `panic` しない。errorを返し、終了判断は `main` に寄せる。
+
+## context、goroutine、WebSocket
+
+- I/Oする関数、待機する関数、キャンセルされ得る関数は第一引数に `context.Context` を取る。
+- goroutineは必ず終了条件を持つ。無制限にgoroutineを増やさない。
+- 1つのWS接続に対してread loopは1つ、write loopは1つにする。同じsocketへ複数goroutineから直接writeしない。
+- ping/pong、read deadline、write deadline、再接続に関係するエラーは `internal/ws` に閉じ込める。
+
+## JSONとプロトコル
+
+- プロトコルメッセージは `json` tag付きの明示的なstructで定義する。
+- decode直後の境界を越えて `map[string]any` を持ち回らない。
+- WSを流れる全メッセージは `id`、`type`、`payload` または `error` を持つ。
+- プロトコルstructの意味を後から変えない。互換性が必要な変更はfield追加で行う。
+
+## テストと確認
+
+- `internal/usecase` はChrome、MCP、実WSなしでunit testする。
+- `internal/ws` は `httptest` またはin-memory clientでテストする。
+- 設定読み込みは一時ディレクトリと環境変数overrideでテストする。
+- Goコードを編集したら `gofmt` と `go test ./...` を実行する。

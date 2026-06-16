@@ -1,0 +1,13 @@
+# Go build cache (local)
+.gocache/
+
+# Binaries
+*.exe
+*.out
+dom-bridge
+
+# OS
+.DS_Store
+
+# Editor
+*.swp
