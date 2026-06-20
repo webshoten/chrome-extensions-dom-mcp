@@ -4,19 +4,27 @@ const INSTALL_COMMAND =
 const START_COMMAND =
   "curl -fsS --max-time 2 http://127.0.0.1:9333/status >/dev/null && echo 'dom-bridge is already running' || launchctl kickstart -k gui/$(id -u)/com.webshoten.dom-bridge";
 const STOP_COMMAND = "launchctl kill TERM gui/$(id -u)/com.webshoten.dom-bridge";
+const CLAUDE_CODE_COMMAND = "claude mcp add chrome-dom-bridge ~/.local/bin/dom-bridge";
+const CODEX_COMMAND = "codex mcp add chrome-dom-bridge ~/.local/bin/dom-bridge";
 
 const summary = document.getElementById("summary");
 const statusDot = document.getElementById("statusDot");
 const daemonStatus = document.getElementById("daemonStatus");
 const extensionStatus = document.getElementById("extensionStatus");
 const installCommand = document.getElementById("installCommand");
+const claudeCodeCommand = document.getElementById("claudeCodeCommand");
+const codexCommand = document.getElementById("codexCommand");
 const startCommand = document.getElementById("startCommand");
 const stopCommand = document.getElementById("stopCommand");
 const copyInstallButton = document.getElementById("copyInstallButton");
+const copyClaudeCodeButton = document.getElementById("copyClaudeCodeButton");
+const copyCodexButton = document.getElementById("copyCodexButton");
 const copyStartButton = document.getElementById("copyStartButton");
 const copyStopButton = document.getElementById("copyStopButton");
 
 installCommand.textContent = INSTALL_COMMAND;
+claudeCodeCommand.textContent = CLAUDE_CODE_COMMAND;
+codexCommand.textContent = CODEX_COMMAND;
 startCommand.textContent = START_COMMAND;
 stopCommand.textContent = STOP_COMMAND;
 
@@ -59,6 +67,12 @@ async function copyCommand(button, command, label) {
 
 copyInstallButton.addEventListener("click", () =>
   copyCommand(copyInstallButton, INSTALL_COMMAND, "初回セットアップをコピー")
+);
+copyClaudeCodeButton.addEventListener("click", () =>
+  copyCommand(copyClaudeCodeButton, CLAUDE_CODE_COMMAND, "Claude Code登録をコピー")
+);
+copyCodexButton.addEventListener("click", () =>
+  copyCommand(copyCodexButton, CODEX_COMMAND, "Codex登録をコピー")
 );
 copyStartButton.addEventListener("click", () =>
   copyCommand(copyStartButton, START_COMMAND, "起動・再開コマンドをコピー")

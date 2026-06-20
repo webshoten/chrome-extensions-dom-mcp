@@ -27,14 +27,34 @@
         </div>
       </dl>
 
-      <details id="setupPanel" class="setup-panel">
-        <summary>macOS セットアップ</summary>
+      <details class="setup-panel">
+        <summary>macOS 初回セットアップ</summary>
         <p>ターミナルで実行してください。</p>
         <div class="command-block">
           <label for="installCommand">初回セットアップ</label>
           <pre><code id="installCommand"></code></pre>
           <button id="copyInstallButton" type="button">初回セットアップをコピー</button>
         </div>
+      </details>
+
+      <details class="setup-panel">
+        <summary>MCP 登録</summary>
+        <p>使うAIクライアントに登録してください。</p>
+        <div class="command-block">
+          <label for="claudeCodeCommand">Claude Code</label>
+          <pre><code id="claudeCodeCommand"></code></pre>
+          <button id="copyClaudeCodeButton" type="button">Claude Code登録をコピー</button>
+        </div>
+        <div class="command-block">
+          <label for="codexCommand">Codex</label>
+          <pre><code id="codexCommand"></code></pre>
+          <button id="copyCodexButton" type="button">Codex登録をコピー</button>
+        </div>
+      </details>
+
+      <details class="setup-panel">
+        <summary>ローカルアプリ操作</summary>
+        <p>停止や再開が必要なときだけ使います。</p>
         <div class="command-block">
           <label for="stopCommand">停止</label>
           <pre><code id="stopCommand"></code></pre>
