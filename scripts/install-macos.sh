@@ -71,7 +71,7 @@ echo "Check status:"
 echo "  curl http://127.0.0.1:9333/status"
 echo
 echo "Start daemon:"
-echo "  launchctl kickstart -k gui/\$(id -u)/${PLIST_ID}"
+echo "  curl -fsS --max-time 2 http://127.0.0.1:9333/status >/dev/null && echo 'dom-bridge is already running' || launchctl kickstart -k gui/\$(id -u)/${PLIST_ID}"
 echo
 echo "Stop daemon:"
 echo "  launchctl kill TERM gui/\$(id -u)/${PLIST_ID}"

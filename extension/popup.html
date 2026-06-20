@@ -27,28 +27,23 @@
         </div>
       </dl>
 
-      <div class="actions">
-        <button id="refreshButton" type="button">再確認</button>
-        <button id="downloadButton" type="button">ダウンロード</button>
-      </div>
-
-      <details id="setupPanel" class="setup-panel" hidden>
+      <details id="setupPanel" class="setup-panel">
         <summary>macOS セットアップ</summary>
         <p>ターミナルで実行してください。</p>
         <div class="command-block">
-          <label for="installCommand">インストール</label>
+          <label for="installCommand">初回セットアップ</label>
           <pre><code id="installCommand"></code></pre>
-          <button id="copyInstallButton" type="button">インストールコマンドをコピー</button>
-        </div>
-        <div class="command-block">
-          <label for="startCommand">起動</label>
-          <pre><code id="startCommand"></code></pre>
-          <button id="copyStartButton" type="button">起動コマンドをコピー</button>
+          <button id="copyInstallButton" type="button">初回セットアップをコピー</button>
         </div>
         <div class="command-block">
           <label for="stopCommand">停止</label>
           <pre><code id="stopCommand"></code></pre>
           <button id="copyStopButton" type="button">停止コマンドをコピー</button>
+        </div>
+        <div class="command-block">
+          <label for="startCommand">起動・再開</label>
+          <pre><code id="startCommand"></code></pre>
+          <button id="copyStartButton" type="button">起動・再開コマンドをコピー</button>
         </div>
       </details>
     </main>
