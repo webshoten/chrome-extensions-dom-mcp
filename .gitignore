@@ -4,7 +4,9 @@
 # Binaries
 *.exe
 *.out
-dom-bridge
+/dom-bridge
+/__debug_bin*
+/dist/
 
 # OS
 .DS_Store

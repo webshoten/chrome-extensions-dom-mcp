@@ -1,0 +1,9 @@
+[
+  {
+    "label": "Debug dom-bridge",
+    "adapter": "Delve",
+    "request": "launch",
+    "mode": "debug",
+    "program": "./cmd/dom-bridge"
+  }
+]

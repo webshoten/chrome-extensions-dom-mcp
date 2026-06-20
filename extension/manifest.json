@@ -7,6 +7,10 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["alarms"],
-  "host_permissions": ["ws://127.0.0.1:9333/*"]
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Chrome DOM Bridge"
+  },
+  "permissions": ["alarms", "scripting", "tabs"],
+  "host_permissions": ["http://127.0.0.1:9333/*", "ws://127.0.0.1:9333/*", "<all_urls>"]
 }
