@@ -4,17 +4,28 @@
 
 ## 概要
 
-Goヘルパーは単体バイナリとして配布し、Chrome拡張とClaude MCP登録を組み合わせてセットアップする。
-macOS、Windows、Linuxで使える形を前提にする。
+`bridge`をDeno compileしたmacOS binaryとして配布し、install scriptで`~/.local/bin/bridge`へ配置する。
+同じbinaryをMCP stdio用とdaemon用に使い、daemonはLaunchAgentで起動する。
+Chrome拡張は当面ストアなしのLoad unpackedで導入する。
+
+## 現在の配布物
+
+GitHub Releasesに置く配布物:
+
+- `bridge-darwin-amd64`
+- `bridge-darwin-arm64`
+- `install-macos.sh`
 
 ## 最終ゴール
 
-セットアップは、ヘルパー配置、拡張導入、MCP登録、ペアリングまでをできるだけ自動化する。
-手動読込と正式配布の両方を想定し、個人利用から配布まで移行できる設計にする。
+セットアップは、binary配置、LaunchAgent登録、daemon起動、拡張導入、MCP登録までをなるべく自動化する。
+拡張はLoad unpackedから始め、将来Chrome Web Storeへ移行できる設計にする。
+Deno Desktopは改善された時点で、daemon方式を置き換えるか補助UIとして追加するか再検討する。
 
 ## 詳細化する項目
 
-- Goバイナリのビルドと配布
-- Chrome拡張の配布方法
+- macOS LaunchAgentの登録、更新、停止、再起動
+- Chrome拡張のLoad unpacked導線
 - `claude mcp add`登録手順
+- Codex MCP登録手順
 - OSごとの設定ファイル配置

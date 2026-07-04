@@ -4,13 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="popup.css">
-    <title>Chrome DOM Bridge</title>
+    <title>Chrome Bridge</title>
   </head>
   <body>
     <main class="panel">
       <header class="header">
         <div>
-          <h1>Chrome DOM Bridge</h1>
+          <h1>Chrome Bridge</h1>
           <p id="summary">状態を確認しています</p>
         </div>
         <span id="statusDot" class="status-dot status-checking" aria-hidden="true"></span>
@@ -18,54 +18,18 @@
 
       <dl class="status-list">
         <div>
-          <dt>ローカルアプリ</dt>
+          <dt>Bridge</dt>
           <dd id="daemonStatus">確認中</dd>
         </div>
         <div>
-          <dt>Chrome拡張</dt>
+          <dt>Extension</dt>
           <dd id="extensionStatus">確認中</dd>
         </div>
+        <div>
+          <dt>Active tab</dt>
+          <dd id="tabStatus">確認中</dd>
+        </div>
       </dl>
-
-      <details class="setup-panel">
-        <summary>macOS 初回セットアップ</summary>
-        <p>ターミナルで実行してください。</p>
-        <div class="command-block">
-          <label for="installCommand">初回セットアップ</label>
-          <pre><code id="installCommand"></code></pre>
-          <button id="copyInstallButton" type="button">初回セットアップをコピー</button>
-        </div>
-      </details>
-
-      <details class="setup-panel">
-        <summary>MCP 登録</summary>
-        <p>使うAIクライアントに登録してください。</p>
-        <div class="command-block">
-          <label for="claudeCodeCommand">Claude Code</label>
-          <pre><code id="claudeCodeCommand"></code></pre>
-          <button id="copyClaudeCodeButton" type="button">Claude Code登録をコピー</button>
-        </div>
-        <div class="command-block">
-          <label for="codexCommand">Codex</label>
-          <pre><code id="codexCommand"></code></pre>
-          <button id="copyCodexButton" type="button">Codex登録をコピー</button>
-        </div>
-      </details>
-
-      <details class="setup-panel">
-        <summary>ローカルアプリ操作</summary>
-        <p>停止や再開が必要なときだけ使います。</p>
-        <div class="command-block">
-          <label for="stopCommand">停止</label>
-          <pre><code id="stopCommand"></code></pre>
-          <button id="copyStopButton" type="button">停止コマンドをコピー</button>
-        </div>
-        <div class="command-block">
-          <label for="startCommand">起動・再開</label>
-          <pre><code id="startCommand"></code></pre>
-          <button id="copyStartButton" type="button">起動・再開コマンドをコピー</button>
-        </div>
-      </details>
     </main>
     <script src="popup.js"></script>
   </body>

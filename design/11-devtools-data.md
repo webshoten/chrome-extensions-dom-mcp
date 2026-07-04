@@ -4,46 +4,57 @@
 
 ## 概要
 
-DOMだけでなく、Network、Performance、Memoryなどの情報もClaudeから取得できるようにする。
-ページ内API、Chrome拡張API、DevTools/CDPを段階的に使い分ける。
+DOMだけでなく、Network、Console、Performance、Memory、RTCなどの情報もMCPから取得できるようにする。
+各toolのI/Fはtool単位の設計書に分ける。
 
-## 最終ゴール
+## 基本方針
 
-通常利用では`performance` APIや`chrome.*` APIを中心に使い、必要な場合に`chrome.debugger`/CDPでDevTools級情報を取得する。
-強力な権限が必要な機能は明示的な有効化とユーザー確認を前提にする。
+DevToolsの完全再現ではなく、AIがMCP toolを使ってデバッグ判断できることを優先する。
+特にNetworkとConsoleは、バグ原因の切り分けに直結するため優先して扱う。
 
-## 現在の次フェーズ: get_network
+情報取得は段階的に深くする。
 
-最初に追加するNetwork系ツールは`get_network`とする。
-対象はアクティブタブで、Chrome拡張が`chrome.scripting.executeScript`を使い、ページ内で`performance.getEntriesByType("resource")`を実行する。
-返す情報は、URL、initiatorType、transferSize、encodedBodySize、decodedBodySize、startTime、durationなどのresource timingに限定する。
+```text
+N1: ページ内API
+  performance APIなど、比較的安全に取れる情報。
 
-この層では以下は取得しない。
+N2: Chrome拡張API
+  webRequestなど、拡張が観測できるブラウザイベント。
 
-- HTTP status code
-- request/response header
-- request/response body
-- fetch/XHRの詳細な失敗理由
-- service worker内部の詳細
+N3: DevTools/CDP
+  chrome.debugger / CDPを使う深い情報。
+  権限が強く、明示的な有効化を前提にする。
+```
 
-これらは`chrome.webRequest`または`chrome.debugger`/CDPが必要になるため、後続フェーズで扱う。
+通常利用はN1/N2を中心にする。
+N3はresponse body、詳細timing、CDP固有のfailed reasonなどが必要になった場合だけ使う。
 
-## API方針
+現在の`get_network`はN2として実装する。
+`chrome.webRequest`でrequest/response headers、request body preview、status/error、GraphQL要約を扱う。
+response body previewはN3が必要になるため、現時点では`bodyUnavailableReason: "requires_cdp"`として返す。
 
-MCP tool名は`get_network`とする。
-引数なしで現在のアクティブタブのresource timing一覧を返す。
-巨大なページでは件数が多くなるため、初期実装では最新または先頭から一定件数へ制限するか、payloadサイズ上限を設ける。
-件数制限を入れる場合も、URL、title、capturedAt、totalCount、returnedCountをメタ情報として返す。
+## Tool別設計
 
-## セキュリティとプライバシー
+- [get_dom](tools/get-dom.md)
+- [get_network](tools/get-network.md)
+- [get_console](tools/get-console.md)
+- [操作系tools](tools/actions.md)
 
-Network URLにはクエリパラメータや識別子が含まれる可能性がある。
-初期実装ではbodyやheaderを扱わないことで危険度を抑える。
-将来的には除外ドメイン、URLクエリのredaction、許可サイト設定を追加する。
+今後追加するtool:
 
-## 詳細化する項目
+- `get_rtc_stats`
+- `get_performance`
 
-- Network情報取得範囲
+## セキュリティ方針
+
+Network、Console、DOMには個人情報、認証情報、業務情報が含まれ得る。
+AIへ渡す前に、必要に応じてredaction、preview制限、binary除外、ログ抑制を行う。
+
+Networkのheaders/bodyはrawでは返さない。
+詳細は [get_network](tools/get-network.md) に定義する。
+
+## 残す検討項目
+
+- `get_rtc_stats`のI/F
+- `chrome.debugger`利用時のユーザー確認UI
 - Performance/Memory取得範囲
-- `chrome.debugger`利用条件
-- 取得情報のサイズと秘匿

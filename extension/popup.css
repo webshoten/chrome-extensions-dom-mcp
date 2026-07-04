@@ -4,7 +4,7 @@
 
 body {
   margin: 0;
-  width: 320px;
+  width: 300px;
   color: #172033;
   background: #f7f8fb;
   font: 13px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -24,7 +24,7 @@ body {
 h1 {
   margin: 0;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 750;
 }
 
 p {
@@ -63,7 +63,7 @@ p {
 
 .status-list div {
   display: grid;
-  grid-template-columns: 92px 1fr;
+  grid-template-columns: 82px 1fr;
   gap: 10px;
   padding: 10px 12px;
 }
@@ -78,68 +78,5 @@ dt {
 
 dd {
   margin: 0;
-  font-weight: 600;
-}
-
-button {
-  min-height: 34px;
-  border: 1px solid #c9d0df;
-  border-radius: 7px;
-  background: #fff;
-  color: #172033;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-button.primary {
-  border-color: #2454d6;
-  background: #2454d6;
-  color: #fff;
-}
-
-.setup-panel {
-  margin-top: 12px;
-  padding: 12px;
-  border: 1px solid #d9deea;
-  border-radius: 8px;
-  background: #fff;
-}
-
-.setup-panel summary {
-  cursor: pointer;
-  font-size: 13px;
   font-weight: 700;
-}
-
-.setup-panel p {
-  margin: 4px 0 8px;
-}
-
-.command-block + .command-block {
-  margin-top: 10px;
-}
-
-.command-block label {
-  display: block;
-  margin-bottom: 4px;
-  color: #687287;
-  font-weight: 700;
-}
-
-pre {
-  margin: 0 0 8px;
-  padding: 9px;
-  overflow-x: auto;
-  border-radius: 6px;
-  background: #101828;
-  color: #f8fafc;
-  font-size: 11px;
-  line-height: 1.4;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.command-block button {
-  width: 100%;
 }

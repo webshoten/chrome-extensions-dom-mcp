@@ -12,9 +12,19 @@ ClaudeからChrome上のページを操作できるように、MCPツールと�
 `click`、`fill`、`navigate`、`screenshot`などを提供し、CSSセレクタ、テキスト、座標、アクセシビリティ情報による要素指定を扱えるようにする。
 React/Vue等のイベント発火、待機、リトライ、操作前確認を設計し、できるだけ確実に操作できる形にする。
 
+## 現在の実装
+
+初期実装では、アクティブタブに対して以下のMCP toolを公開する。
+
+- `click`: CSS selectorまたは表示テキストで要素をクリックする
+- `fill`: input/textarea/select/contenteditableへ値を入れる
+- `wait_for`: selectorまたは表示テキストが現れる/隠れるまで待つ
+- `navigate`: アクティブタブをhttp/https URLへ遷移する
+
+詳細: [操作系tools](tools/actions.md)
+
 ## 詳細化する項目
 
-- 公開するMCPツール一覧
 - 要素指定方式
 - 操作前確認と安全制限
 - 待機、リトライ、失敗理由

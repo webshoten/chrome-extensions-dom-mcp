@@ -14,6 +14,7 @@
 - WS認証トークンの生成、保存、初回共有方法の詳細
 - 操作系にユーザー確認を挟む条件
 - Chrome Web Store配布を目指す時期
+- Deno Desktop 2.9.0のmacOS生成物で、最小アプリでも`Could not find standalone binary section in dylib`が出る問題の解消方法
 
 ## 決定時の扱い
 

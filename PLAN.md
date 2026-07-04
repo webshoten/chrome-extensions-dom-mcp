@@ -1,4 +1,4 @@
-# Chrome DOM Bridge MCP — 構想メモ
+# Chrome Bridge MCP — 構想メモ
 
 自分の普段使いのChrome（プロファイル・ログイン状態そのまま）に対して、
 Claude が必要時に DOM 取得・ページ操作・DevTools級情報取得できる軽量MCP。
@@ -69,7 +69,7 @@ Claude が必要時に DOM 取得・ページ操作・DevTools級情報取得で
 
 - MCP(stdio型)の「サーバー」= ただの実行ファイル
 - **自分で起動しない**。Claude が必要時に自動起動する
-- 登録は1回だけ: `claude mcp add dom-bridge /path/to/helper`
+- 登録は1回だけ: `claude mcp add chrome-bridge /path/to/helper`
 - 「サーバー起動という作業が要らない」が正確（起動自体はClaudeが裏でやる）
 - 停止も不要（Claude終了でバイナリも終了）
 
@@ -93,7 +93,7 @@ Claude が必要時に DOM 取得・ページ操作・DevTools級情報取得で
 
 1. 拡張をChromeに入れる（ストア or 手動読込）
 2. ヘルパー(バイナリ)を設置
-3. Claudeに登録: `claude mcp add dom-bridge /path/to/helper`
+3. Claudeに登録: `claude mcp add chrome-bridge /path/to/helper`
 
 ### 毎回
 
@@ -145,13 +145,13 @@ Claude が必要時に DOM 取得・ページ操作・DevTools級情報取得で
 
 ## 7. クロスプラットフォーム
 
-- **OS非依存（共通）**: 拡張、ヘルパーのロジック、WS/MCP通信 → 9割共通
+- **OS非依存（共通）**: 拡張、bridgeのロジック、WS/MCP通信 → 9割共通
 - **OS依存（分岐）**:
-  - バイナリ形式 → ビルド時に各OS出力（Goクロスコンパイル / `bun --compile` / `pkg`）
+  - バイナリ形式 → Deno compileまたはDeno Desktopで各OS向けに出力
   - 設定ファイル置き場 → Mac `~/Library/...` / Win `%APPDATA%`・レジストリ / Linux `~/.config/...`
   - インストーラ → OS毎に用意（やる事は「ファイル置く＋権限」程度）
-- 楽にする手: ヘルパーを **Go** で書くと全OSバイナリ生成が1コマンドで配布が平和
-- Go採用理由: 単体バイナリ配布しやすい、起動が速い、JSON/HTTP/WS周りが素直、Rustより初心者が詰まりにくい。今回はGo基礎を学びながら小さく作る方針
+- 現在方針: bridgeは **Deno/TypeScript** で実装し、将来はDeno Desktop appを主役にする。
+- 採用理由: ユーザーがJS/TSに慣れており、Chrome拡張と型・protocolを共有しやすい。Deno compileで単体バイナリ配布もできる。
 
 ---
 
@@ -182,7 +182,7 @@ Claude が必要時に DOM 取得・ページ操作・DevTools級情報取得で
 - [ ] WS認証トークン設計
 - [ ] 操作系ツール追加（click/fill/navigate）
 - [ ] 情報取得 層1 → 層2 → 必要なら層3
-- [ ] クロスプラットフォーム対応（Goヘルパー検討）
+- [ ] クロスプラットフォーム対応（Deno compile / Deno Desktop）
 
 ---
 
@@ -247,7 +247,7 @@ Claude が必要時に DOM 取得・ページ操作・DevTools級情報取得で
 
 16. **「操作も簡単?」** → 単純操作は簡単。複数ステップの確実な操作は要素特定・待機で難易度上がる。
 
-17. **「クロスプラットフォームは?」** → 拡張・ロジックは共通。バイナリ形式・設定パス・インストーラだけOS分岐。Go推奨。
+17. **「クロスプラットフォームは?」** → 拡張・ロジックは共通。バイナリ形式・設定パス・インストーラだけOS分岐。現在はDeno/TypeScript方針。
 
 18. **「バイナリの仕組み? バイナリ⇄ws⇄Chrome?」** → 正確には2本: ①stdio(Claude) ②WS(拡張)。バイナリは中継翻訳機。
 

@@ -1,12 +1,13 @@
-# Go build cache (local)
-.gocache/
-
 # Binaries
 *.exe
 *.out
-/dom-bridge
+/bridge
 /__debug_bin*
 /dist/
+*.app/
+
+# Legacy local build cache
+.gocache/
 
 # OS
 .DS_Store

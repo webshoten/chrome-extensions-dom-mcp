@@ -2,19 +2,21 @@
 set -euo pipefail
 
 REPO="webshoten/chrome-extensions-dom-mcp"
-APP_NAME="dom-bridge"
-PLIST_ID="com.webshoten.dom-bridge"
+APP_NAME="bridge"
+PLIST_ID="com.webshoten.bridge"
+LEGACY_PLIST_ID="com.webshoten.dom-bridge"
 INSTALL_DIR="${HOME}/.local/bin"
 BIN_PATH="${INSTALL_DIR}/${APP_NAME}"
 PLIST_PATH="${HOME}/Library/LaunchAgents/${PLIST_ID}.plist"
+LEGACY_PLIST_PATH="${HOME}/Library/LaunchAgents/${LEGACY_PLIST_ID}.plist"
 
 arch="$(uname -m)"
 case "${arch}" in
   arm64)
-    asset="dom-bridge-darwin-arm64"
+    binary_asset="bridge-darwin-arm64"
     ;;
   x86_64)
-    asset="dom-bridge-darwin-amd64"
+    binary_asset="bridge-darwin-amd64"
     ;;
   *)
     echo "Unsupported macOS architecture: ${arch}" >&2
@@ -22,23 +24,39 @@ case "${arch}" in
     ;;
 esac
 
-download_url="https://github.com/${REPO}/releases/latest/download/${asset}"
-tmp_file="$(mktemp)"
+tmp_dir="$(mktemp -d)"
+tmp_binary="${tmp_dir}/bridge"
 cleanup() {
-  rm -f "${tmp_file}"
+  rm -rf "${tmp_dir}"
 }
 trap cleanup EXIT
 
-echo "Downloading ${asset}..."
-curl -fL "${download_url}" -o "${tmp_file}"
+if [[ -n "${BRIDGE_BINARY:-}" ]]; then
+  if [[ ! -f "${BRIDGE_BINARY}" ]]; then
+    echo "BRIDGE_BINARY does not exist: ${BRIDGE_BINARY}" >&2
+    exit 1
+  fi
+  echo "Using local binary: ${BRIDGE_BINARY}"
+  cp "${BRIDGE_BINARY}" "${tmp_binary}"
+else
+  download_url="https://github.com/${REPO}/releases/latest/download/${binary_asset}"
+  echo "Downloading ${binary_asset}..."
+  curl -fL "${download_url}" -o "${tmp_binary}"
+fi
 
-mkdir -p "${INSTALL_DIR}"
-install -m 0755 "${tmp_file}" "${BIN_PATH}"
+launchctl kill TERM "gui/$(id -u)/${PLIST_ID}" >/dev/null 2>&1 || true
+launchctl bootout "gui/$(id -u)" "${PLIST_PATH}" >/dev/null 2>&1 || true
+launchctl kill TERM "gui/$(id -u)/${LEGACY_PLIST_ID}" >/dev/null 2>&1 || true
+launchctl bootout "gui/$(id -u)" "${LEGACY_PLIST_PATH}" >/dev/null 2>&1 || true
+rm -f "${LEGACY_PLIST_PATH}" "${INSTALL_DIR}/dom-bridge"
 
-mkdir -p "${HOME}/Library/LaunchAgents"
+mkdir -p "${INSTALL_DIR}" "$(dirname "${PLIST_PATH}")"
+install -m 0755 "${tmp_binary}" "${BIN_PATH}"
+
 cat > "${PLIST_PATH}" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>Label</key>
@@ -50,28 +68,34 @@ cat > "${PLIST_PATH}" <<PLIST
   </array>
   <key>RunAtLoad</key>
   <true/>
-  <key>KeepAlive</key>
-  <false/>
   <key>StandardOutPath</key>
-  <string>${HOME}/Library/Logs/${PLIST_ID}.log</string>
+  <string>${HOME}/Library/Logs/bridge.log</string>
   <key>StandardErrorPath</key>
-  <string>${HOME}/Library/Logs/${PLIST_ID}.error.log</string>
+  <string>${HOME}/Library/Logs/bridge.log</string>
 </dict>
 </plist>
 PLIST
 
-launchctl bootout "gui/$(id -u)" "${PLIST_PATH}" >/dev/null 2>&1 || true
-launchctl bootstrap "gui/$(id -u)" "${PLIST_PATH}"
+launchctl bootstrap "gui/$(id -u)" "${PLIST_PATH}" 2>/dev/null || true
 launchctl kickstart -k "gui/$(id -u)/${PLIST_ID}"
 
-echo "Installed ${APP_NAME} to ${BIN_PATH}"
+port_owner_pid="$(lsof -nP -tiTCP:9333 -sTCP:LISTEN 2>/dev/null || true)"
+port_owner_pid="${port_owner_pid%%$'\n'*}"
+if [[ -n "${port_owner_pid}" ]]; then
+  port_owner_command="$(ps -p "${port_owner_pid}" -o comm= 2>/dev/null || true)"
+  echo
+  echo "Bridge daemon is listening on port 9333. PID ${port_owner_pid}: ${port_owner_command}" >&2
+fi
+
+echo "Installed bridge to ${BIN_PATH}"
+echo "Installed LaunchAgent to ${PLIST_PATH}"
 echo "Started daemon with launchd: ${PLIST_ID}"
 echo
 echo "Check status:"
 echo "  curl http://127.0.0.1:9333/status"
 echo
-echo "Start daemon:"
-echo "  curl -fsS --max-time 2 http://127.0.0.1:9333/status >/dev/null && echo 'dom-bridge is already running' || launchctl kickstart -k gui/\$(id -u)/${PLIST_ID}"
+echo "Start or restart daemon:"
+echo "  launchctl kickstart -k gui/\$(id -u)/${PLIST_ID}"
 echo
 echo "Stop daemon:"
 echo "  launchctl kill TERM gui/\$(id -u)/${PLIST_ID}"

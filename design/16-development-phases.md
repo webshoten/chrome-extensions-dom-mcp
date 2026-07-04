@@ -9,13 +9,12 @@
 
 ## フェーズ
 
-フェーズ1は、GoヘルパーとChrome拡張をWebSocketで接続し、MV3 service workerの生存戦略を確認する。
-Go初心者向けに、`main.go`、module、package、error、context、HTTP/WSの基本を確認しながら進める。
-詳細: [phase-1-go-helper-and-extension.md](phase-1-go-helper-and-extension.md)
-
-フェーズ2は、アクティブタブから`get_dom`を取得し、Goヘルパー経由で返せるようにする。現在はMCP経由で動作確認済み。
-フェーズ3は、GoヘルパーをMCP stdioサーバーとしてClaudeから呼べるようにする。現在は`dom-bridge daemon`と`dom-bridge mcp`を分離済み。
-フェーズ4は、Chrome拡張パネルとmacOSセットアップ導線を整える。現在は初回セットアップ、停止、起動・再開コマンドのコピーUIまで実装済み。
-フェーズ5は、`get_network`を追加する。まず`performance.getEntriesByType("resource")`ベースの軽量Network情報を扱う。
-フェーズ6は、`click`、`fill`、`navigate`などの操作系を追加する。
-フェーズ7は、設定UI、認証、配布、DevTools級情報取得を整える。
+フェーズ1は、Deno bridgeで既存のMCP/daemonインターフェースを再現する。現在は`src/bridge`でMCP、HTTP API、WebSocketの最小実装済み。
+フェーズ2は、macOS向けDeno compile配布物とLaunchAgent installを安定させる。`bridge-darwin-amd64`、`bridge-darwin-arm64`、`install-macos.sh`を生成する。
+フェーズ3は、`get_network`をAI向けNetworkデバッグレポートへ広げる。現在はredaction済みheaders、request body preview、GraphQL要約、横断検索、サイズ制限まで初期実装済み。
+フェーズ4は、`get_console`を追加する。console/error/unhandledrejectionの初期取得は実装済み。
+フェーズ5は、`chrome.webRequest`の追加オプションまたは`chrome.debugger`を使い、Networkのresponse bodyや詳細timingへ段階的に広げる。
+フェーズ6は、`get_rtc_stats`を検討する。WebRTCは`get_network`では直接見えないため、`RTCPeerConnection.getStats()`由来の別ツールにする。
+フェーズ7は、`click`、`fill`、`navigate`などの操作系を追加する。現在は`click`、`fill`、`wait_for`、`navigate`の初期実装済み。
+フェーズ8は、設定UI、認証、配布、DevTools級情報取得を整える。
+フェーズ9は、Deno DesktopがmacOS Intelで安定した時点でDesktop app導線を再検討する。

@@ -1,0 +1,180 @@
+import type { BrowserToolName, NetworkQuery } from "../protocol/types.ts";
+import { BrowserService, ProxyBrowserClient } from "./browser_service.ts";
+import { WebSocketBridge } from "./ws_bridge.ts";
+
+const REQUEST_TIMEOUT_MS = 10_000;
+
+function timeoutSignal(
+  ms: number,
+): { signal: AbortSignal; cancel: () => void } {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return {
+    signal: controller.signal,
+    cancel: () => clearTimeout(timer),
+  };
+}
+
+function jsonResponse(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function textResponse(message: string, status = 200): Response {
+  return new Response(message, {
+    status,
+    headers: { "content-type": "text/plain; charset=utf-8" },
+  });
+}
+
+const BROWSER_TOOLS = new Set<BrowserToolName>([
+  "get_dom",
+  "get_network",
+  "get_console",
+  "click",
+  "fill",
+  "wait_for",
+  "navigate",
+]);
+
+function isBrowserToolName(value: string): value is BrowserToolName {
+  return BROWSER_TOOLS.has(value as BrowserToolName);
+}
+
+// daemonのlocalhost HTTP APIとChrome拡張WebSocket endpointを公開します。
+export class DOMServer {
+  readonly #service: BrowserService;
+  #lastToolCallAt = new Map<BrowserToolName, string>();
+
+  constructor(
+    private readonly addr: string,
+    private readonly bridge: WebSocketBridge,
+  ) {
+    this.#service = new BrowserService(bridge);
+  }
+
+  listenAndServe(): Deno.HttpServer<Deno.NetAddr> {
+    const [hostname, rawPort] = this.addr.split(":");
+    const port = Number(rawPort);
+    console.error(`bridge daemon listening on http://${this.addr}`);
+
+    return Deno.serve(
+      { hostname, port },
+      (request) => this.handleRequest(request),
+    );
+  }
+
+  async handleRequest(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/health") {
+      return textResponse("ok\n");
+    }
+    if (url.pathname === "/status") {
+      return this.#handleStatus(request);
+    }
+    if (url.pathname === "/get-dom") {
+      return await this.#handleLegacyGetDOM(request);
+    }
+    if (url.pathname === "/get-network") {
+      return await this.#handleLegacyGetNetwork(request);
+    }
+    if (url.pathname.startsWith("/tool/")) {
+      return await this.#handleTool(request, url);
+    }
+    if (url.pathname === "/ws") {
+      return this.bridge.handleWebSocket(request);
+    }
+    return textResponse("not found\n", 404);
+  }
+
+  #handleStatus(request: Request): Response {
+    if (request.method !== "GET") {
+      return textResponse("method not allowed\n", 405);
+    }
+    return jsonResponse({
+      ok: true,
+      extensionConnections: this.bridge.clientCount,
+      lastGetDOMAt: this.#lastToolCallAt.get("get_dom") ?? null,
+      lastGetNetworkAt: this.#lastToolCallAt.get("get_network") ?? null,
+      lastToolCalls: Object.fromEntries(this.#lastToolCallAt),
+    });
+  }
+
+  async #handleLegacyGetDOM(request: Request): Promise<Response> {
+    if (request.method !== "GET") {
+      return textResponse("method not allowed\n", 405);
+    }
+    return await this.#runTool("get_dom", {});
+  }
+
+  async #handleLegacyGetNetwork(request: Request): Promise<Response> {
+    if (request.method !== "POST") {
+      return textResponse("method not allowed\n", 405);
+    }
+
+    let query: NetworkQuery = {};
+    try {
+      const body = await request.text();
+      query = body.trim() === "" ? {} : JSON.parse(body);
+    } catch (error) {
+      return textResponse(`parse network query: ${error}\n`, 400);
+    }
+
+    return await this.#runTool("get_network", query);
+  }
+
+  async #handleTool(request: Request, url: URL): Promise<Response> {
+    if (request.method !== "POST") {
+      return textResponse("method not allowed\n", 405);
+    }
+
+    const name = decodeURIComponent(url.pathname.slice("/tool/".length));
+    if (!isBrowserToolName(name)) {
+      return textResponse(`unknown browser tool: ${name}\n`, 404);
+    }
+
+    let payload: unknown = {};
+    try {
+      const body = await request.text();
+      payload = body.trim() === "" ? {} : JSON.parse(body);
+    } catch (error) {
+      return textResponse(`parse tool payload: ${error}\n`, 400);
+    }
+
+    return await this.#runTool(name, payload);
+  }
+
+  async #runTool(name: BrowserToolName, payload: unknown): Promise<Response> {
+    const timeout = timeoutSignal(REQUEST_TIMEOUT_MS);
+    try {
+      const result = await this.#service.callTool(
+        name,
+        payload,
+        timeout.signal,
+      );
+      this.#lastToolCallAt.set(name, new Date().toISOString());
+      return jsonResponse(result);
+    } catch (error) {
+      return textResponse(
+        `${error instanceof Error ? error.message : error}\n`,
+        503,
+      );
+    } finally {
+      timeout.cancel();
+    }
+  }
+}
+
+// 旧get-dom/get-network呼び出し元との互換を保つMCP側proxyです。
+export class ProxyDOMGetter extends ProxyBrowserClient {
+  async getDOM(signal: AbortSignal): Promise<string> {
+    return await this.callTool("get_dom", {}, signal);
+  }
+
+  async getNetwork(query: NetworkQuery, signal: AbortSignal): Promise<string> {
+    return await this.callTool("get_network", query, signal);
+  }
+}

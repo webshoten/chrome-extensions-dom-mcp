@@ -12,9 +12,12 @@ Claudeからの`get_dom`要求に対して、Chrome拡張が対象タブのDOM�
 既定ではアクティブウィンドウのアクティブタブを対象にし、HTML、URL、title、取得時刻、サイズなどを返す。
 iframe、Shadow DOM、script/style、巨大DOM、非表示要素をどう扱うかを仕様として定義する。
 
-## 詳細化する項目
+## Tool別設計
+
+- [get_dom](tools/get-dom.md)
+
+## 残す検討項目
 
 - 対象タブの決定方法
-- 返却JSON形式
 - サイズ制限と切り詰め
 - iframe/Shadow DOM対応

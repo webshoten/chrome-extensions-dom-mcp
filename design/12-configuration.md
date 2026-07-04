@@ -5,16 +5,54 @@
 ## 概要
 
 ポート、認証トークン、許可サイト、ログレベル、DevTools/CDP機能の有効化などを設定として扱う。
-Goヘルパー側とChrome拡張側の設定がずれた場合でも復旧しやすくする。
+daemon側とChrome拡張側の設定がずれた場合でも復旧しやすくする。
 
 ## 最終ゴール
 
-Goヘルパーは設定ファイルと環境変数をサポートし、Chrome拡張は`chrome.storage`と設定画面を使う。
+daemonは設定ファイルと環境変数をサポートし、Chrome拡張は接続に必要な最小設定だけを`chrome.storage`へ持つ。
 ペアリングによりトークンや接続情報を自動共有し、ユーザーが設定ファイルを直接編集しなくても使える形にする。
 
-## 詳細化する項目
+## Network関連設定
 
-- ヘルパー設定ファイルの場所
-- 拡張設定UI
+Network系機能は段階的に有効化する。
+
+初期状態で有効:
+
+- `get_network`
+- 短期Network履歴バッファ
+- `query`、`failedOnly`、`limit`検索
+
+将来設定で制御するもの:
+
+- Network履歴の保持件数
+- URL query redactionの有効/無効
+- 除外ドメイン
+- 許可ドメイン
+- body previewの最大byte数
+- `chrome.debugger`/CDP詳細モード
+
+推奨初期値:
+
+```json
+{
+  "network": {
+    "enabled": true,
+    "maxEntries": 500,
+    "redactUrlQuery": true,
+    "maxBodyPreviewBytes": 10000,
+    "cdpDetailEnabled": false
+  }
+}
+```
+
+標準の`get_network`でもredactionは必須とし、raw headers/raw bodyを返す設定は持たない。
+CDP詳細モードはChromeの`debugger`権限を伴うため、別設定として明示的に有効化する。
+
+## 残す検討項目
+
+- daemon設定ファイルの場所
+- 拡張側に残す最小設定
 - 設定不一致の検出
 - 初期化、再ペアリング、リセット
+- CDPモードのUI
+- 許可/除外ドメインの保存形式

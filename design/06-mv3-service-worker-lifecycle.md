@@ -9,7 +9,7 @@ Chrome 116以降ではWS上の送受信がservice workerのidle timerをリセ�
 
 ## 最終ゴール
 
-WS接続中は拡張から20秒ごとにpingを送り、Goヘルパーがpongを返す。
+WS接続中は拡張から20秒ごとにpingを送り、bridge daemonがpongを返す。
 切断、service worker停止、Chrome再起動後も再接続でき、MCPリクエストを取りこぼさない構成にする。
 
 ## 詳細化する項目

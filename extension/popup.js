@@ -1,42 +1,34 @@
 const STATUS_URL = "http://127.0.0.1:9333/status";
-const INSTALL_COMMAND =
-  "curl -fsSL https://github.com/webshoten/chrome-extensions-dom-mcp/releases/latest/download/install-macos.sh | bash";
-const START_COMMAND =
-  "curl -fsS --max-time 2 http://127.0.0.1:9333/status >/dev/null && echo 'dom-bridge is already running' || launchctl kickstart -k gui/$(id -u)/com.webshoten.dom-bridge";
-const STOP_COMMAND = "launchctl kill TERM gui/$(id -u)/com.webshoten.dom-bridge";
-const CLAUDE_CODE_COMMAND = "claude mcp add chrome-dom-bridge ~/.local/bin/dom-bridge";
-const CODEX_COMMAND = "codex mcp add chrome-dom-bridge ~/.local/bin/dom-bridge";
 
 const summary = document.getElementById("summary");
 const statusDot = document.getElementById("statusDot");
 const daemonStatus = document.getElementById("daemonStatus");
 const extensionStatus = document.getElementById("extensionStatus");
-const installCommand = document.getElementById("installCommand");
-const claudeCodeCommand = document.getElementById("claudeCodeCommand");
-const codexCommand = document.getElementById("codexCommand");
-const startCommand = document.getElementById("startCommand");
-const stopCommand = document.getElementById("stopCommand");
-const copyInstallButton = document.getElementById("copyInstallButton");
-const copyClaudeCodeButton = document.getElementById("copyClaudeCodeButton");
-const copyCodexButton = document.getElementById("copyCodexButton");
-const copyStartButton = document.getElementById("copyStartButton");
-const copyStopButton = document.getElementById("copyStopButton");
+const tabStatus = document.getElementById("tabStatus");
 
-installCommand.textContent = INSTALL_COMMAND;
-claudeCodeCommand.textContent = CLAUDE_CODE_COMMAND;
-codexCommand.textContent = CODEX_COMMAND;
-startCommand.textContent = START_COMMAND;
-stopCommand.textContent = STOP_COMMAND;
-
-function setStatus(kind, text, daemonText, extensionText) {
+function setStatus(kind, text, daemonText, extensionText, tabText) {
   statusDot.className = `status-dot ${kind}`;
   summary.textContent = text;
   daemonStatus.textContent = daemonText;
   extensionStatus.textContent = extensionText;
+  tabStatus.textContent = tabText;
+}
+
+async function getActiveTabStatus() {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs[0];
+  if (!tab || tab.id === undefined) {
+    return "未検出";
+  }
+  if (!tab.url || tab.url.startsWith("chrome://")) {
+    return "対象外";
+  }
+  return "取得可能";
 }
 
 async function refreshStatus() {
-  setStatus("status-checking", "状態を確認しています", "確認中", "確認中");
+  setStatus("status-checking", "状態を確認しています", "確認中", "確認中", "確認中");
+  const activeTabText = await getActiveTabStatus();
 
   try {
     const response = await fetch(STATUS_URL, { cache: "no-store" });
@@ -47,38 +39,14 @@ async function refreshStatus() {
     const status = await response.json();
     const connections = Number(status.extensionConnections ?? 0);
     if (connections > 0) {
-      setStatus("status-ready", "接続済み", "起動中", "接続済み");
+      setStatus("status-ready", "接続済み", "起動中", "接続済み", activeTabText);
       return;
     }
 
-    setStatus("status-warning", "ローカルアプリは起動中です", "起動中", "未接続");
-  } catch (error) {
-    setStatus("status-error", "ローカルアプリが必要です", "未起動", "未接続");
+    setStatus("status-warning", "Bridgeは起動中です", "起動中", "未接続", activeTabText);
+  } catch (_error) {
+    setStatus("status-error", "Bridge未起動", "未起動", "未接続", activeTabText);
   }
 }
-
-async function copyCommand(button, command, label) {
-  await navigator.clipboard.writeText(command);
-  button.textContent = "コピーしました";
-  setTimeout(() => {
-    button.textContent = label;
-  }, 1500);
-}
-
-copyInstallButton.addEventListener("click", () =>
-  copyCommand(copyInstallButton, INSTALL_COMMAND, "初回セットアップをコピー")
-);
-copyClaudeCodeButton.addEventListener("click", () =>
-  copyCommand(copyClaudeCodeButton, CLAUDE_CODE_COMMAND, "Claude Code登録をコピー")
-);
-copyCodexButton.addEventListener("click", () =>
-  copyCommand(copyCodexButton, CODEX_COMMAND, "Codex登録をコピー")
-);
-copyStartButton.addEventListener("click", () =>
-  copyCommand(copyStartButton, START_COMMAND, "起動・再開コマンドをコピー")
-);
-copyStopButton.addEventListener("click", () =>
-  copyCommand(copyStopButton, STOP_COMMAND, "停止コマンドをコピー")
-);
 
 refreshStatus();

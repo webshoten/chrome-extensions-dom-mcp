@@ -1,3 +1,11 @@
+importScripts(
+  "active_tab.js",
+  "dom_tools.js",
+  "network_tools.js",
+  "console_tools.js",
+  "action_tools.js",
+);
+
 const WS_URL = "ws://127.0.0.1:9333/ws";
 const PING_INTERVAL_MS = 20_000;
 const RECONNECT_DELAY_MS = 3_000;
@@ -7,13 +15,23 @@ let pingTimer = null;
 let reconnectTimer = null;
 let nextMessageId = 1;
 
+const TOOL_HANDLERS = {
+  get_dom: (payload) => globalThis.BridgeDomTools.captureDOM(payload),
+  get_network: (payload) => globalThis.BridgeNetworkTools.getNetwork(payload),
+  get_console: (payload) => globalThis.BridgeConsoleTools.getConsole(payload),
+  click: (payload) => globalThis.BridgeActionTools.click(payload),
+  fill: (payload) => globalThis.BridgeActionTools.fill(payload),
+  wait_for: (payload) => globalThis.BridgeActionTools.waitFor(payload),
+  navigate: (payload) => globalThis.BridgeActionTools.navigate(payload),
+};
+
 function log(message, detail) {
   if (detail === undefined) {
-    console.log(`[dom-bridge] ${message}`);
+    console.log(`[bridge] ${message}`);
     return;
   }
 
-  console.log(`[dom-bridge] ${message}`, detail);
+  console.log(`[bridge] ${message}`, detail);
 }
 
 function clearPingTimer() {
@@ -41,7 +59,7 @@ function sendPing() {
 
   const message = {
     id: `ping-${nextMessageId}`,
-    type: "ping"
+    type: "ping",
   };
   nextMessageId += 1;
 
@@ -58,58 +76,27 @@ function sendMessage(message) {
   socket.send(JSON.stringify(message));
 }
 
-async function getActiveTab() {
-  const tabs = await chrome.tabs.query({
-    active: true,
-    currentWindow: true
-  });
-
-  if (tabs.length === 0 || tabs[0].id === undefined) {
-    throw new Error("active tab was not found");
-  }
-
-  return tabs[0];
-}
-
-async function captureDOM() {
-  const tab = await getActiveTab();
-  const results = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: () => ({
-      url: location.href,
-      title: document.title,
-      capturedAt: new Date().toISOString(),
-      html: document.documentElement.outerHTML
-    })
-  });
-
-  if (results.length === 0 || results[0].result === undefined) {
-    throw new Error("dom capture returned no result");
-  }
-
-  return results[0].result;
-}
-
 async function handleRequest(message) {
-  if (message.type !== "get_dom") {
+  const handler = TOOL_HANDLERS[message.type];
+  if (!handler) {
     return;
   }
 
   try {
-    const payload = await captureDOM();
+    const payload = await handler(message.payload ?? {});
     sendMessage({
       id: message.id,
-      type: "get_dom_result",
-      payload
+      type: `${message.type}_result`,
+      payload,
     });
   } catch (error) {
     sendMessage({
       id: message.id,
       type: "error",
       error: {
-        code: "DOM_CAPTURE_FAILED",
-        message: error instanceof Error ? error.message : String(error)
-      }
+        code: `${message.type.toUpperCase()}_FAILED`,
+        message: error instanceof Error ? error.message : String(error),
+      },
     });
   }
 }
@@ -142,7 +129,7 @@ function connect() {
       const message = JSON.parse(event.data);
       log(`received ${message.type}`, message);
       handleRequest(message);
-    } catch (error) {
+    } catch (_error) {
       log("received non-json message", event.data);
     }
   });
@@ -169,16 +156,17 @@ chrome.runtime.onStartup.addListener(() => {
   connect();
 });
 
-chrome.alarms.create("dom-bridge-keepalive", {
-  periodInMinutes: 1
+chrome.alarms.create("bridge-keepalive", {
+  periodInMinutes: 1,
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name !== "dom-bridge-keepalive") {
+  if (alarm.name !== "bridge-keepalive") {
     return;
   }
 
   connect();
 });
 
+globalThis.BridgeNetworkTools.register();
 connect();

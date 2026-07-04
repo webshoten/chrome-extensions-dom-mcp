@@ -1,0 +1,14 @@
+{
+  "name": "chrome-bridge-mcp",
+  "version": "0.1.0",
+  "exports": "./src/bridge/main.ts",
+  "tasks": {
+    "check": "deno check src/bridge/main.ts",
+    "test": "deno test --allow-net=127.0.0.1:9333",
+    "daemon:dev": "deno run --allow-net=127.0.0.1:9333 src/bridge/main.ts daemon",
+    "build:macos": "scripts/build-release-macos.sh"
+  },
+  "fmt": {
+    "include": ["src/**/*.ts", "experiments/**/*.ts"]
+  }
+}
