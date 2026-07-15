@@ -1,4 +1,13 @@
 (function () {
+  /*
+   * # Console取得tool
+   *
+   * ## 目的
+   * AI Agentが現在タブのconsole/error/unhandledrejection履歴をデバッグ材料として取得できるようにする。
+   *
+   * ## 説明
+   * background service workerはページのconsoleを直接読めないため、content script側のbufferへ問い合わせる。
+   */
   const DEFAULT_LIMIT = 100;
   const MAX_LIMIT = 200;
 
@@ -17,6 +26,7 @@
     };
   }
 
+  // content scriptがまだ入っていないタブでは、必要なcapture/hookを後から注入します。
   async function sendConsoleMessage(tabId, message) {
     try {
       return await chrome.tabs.sendMessage(tabId, message);
@@ -34,6 +44,7 @@
     }
   }
 
+  // MCP toolのqueryを現在タブのconsole buffer検索へ変換し、tab meta付きで返します。
   async function getConsole(rawQuery) {
     const tab = await globalThis.BridgeActiveTab.getActiveTab();
     const query = normalizeQuery(rawQuery);

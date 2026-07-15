@@ -39,11 +39,20 @@ const BROWSER_TOOLS = new Set<BrowserToolName>([
   "navigate",
 ]);
 
+// daemonのHTTP入口で受け付けるtool名を、Chrome拡張へ送れるbrowser toolだけに限定します。
 function isBrowserToolName(value: string): value is BrowserToolName {
   return BROWSER_TOOLS.has(value as BrowserToolName);
 }
 
-// daemonのlocalhost HTTP APIとChrome拡張WebSocket endpointを公開します。
+/*
+ * # daemon HTTP API
+ *
+ * ## 目的
+ * AI AgentやMCPプロセスからのHTTP requestと、Chrome拡張からのWebSocket接続を同じlocalhost入口で受ける。
+ *
+ * ## 説明
+ * 外側には/statusや/tool/<toolName>を公開し、Chrome拡張との実通信は/wsへ分離する。
+ */
 export class DOMServer {
   readonly #service: BrowserService;
   #lastToolCallAt = new Map<BrowserToolName, string>();
@@ -66,6 +75,7 @@ export class DOMServer {
     );
   }
 
+  // daemonの公開HTTP surfaceです。tool追加時も基本的には/tool/<toolName>へ寄せます。
   async handleRequest(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
@@ -90,6 +100,7 @@ export class DOMServer {
     return textResponse("not found\n", 404);
   }
 
+  // 拡張接続と直近tool実行を、ユーザーやAIが状態確認できる形で返します。
   #handleStatus(request: Request): Response {
     if (request.method !== "GET") {
       return textResponse("method not allowed\n", 405);
@@ -103,6 +114,7 @@ export class DOMServer {
     });
   }
 
+  // curl確認や古い呼び出し元向けの互換入口です。新しいI/Fは/tool/get_domを使います。
   async #handleLegacyGetDOM(request: Request): Promise<Response> {
     if (request.method !== "GET") {
       return textResponse("method not allowed\n", 405);
@@ -110,6 +122,7 @@ export class DOMServer {
     return await this.#runTool("get_dom", {});
   }
 
+  // curl確認や古い呼び出し元向けの互換入口です。新しいI/Fは/tool/get_networkを使います。
   async #handleLegacyGetNetwork(request: Request): Promise<Response> {
     if (request.method !== "POST") {
       return textResponse("method not allowed\n", 405);
@@ -126,6 +139,7 @@ export class DOMServer {
     return await this.#runTool("get_network", query);
   }
 
+  // browser toolの標準入口です。payloadはここでは解釈せず、tool実行境界へ渡します。
   async #handleTool(request: Request, url: URL): Promise<Response> {
     if (request.method !== "POST") {
       return textResponse("method not allowed\n", 405);
@@ -147,6 +161,7 @@ export class DOMServer {
     return await this.#runTool(name, payload);
   }
 
+  // HTTP request単位のtimeoutと状態記録を担い、Chrome拡張側の結果をHTTP responseへ戻します。
   async #runTool(name: BrowserToolName, payload: unknown): Promise<Response> {
     const timeout = timeoutSignal(REQUEST_TIMEOUT_MS);
     try {
@@ -168,7 +183,12 @@ export class DOMServer {
   }
 }
 
-// 旧get-dom/get-network呼び出し元との互換を保つMCP側proxyです。
+/*
+ * # 互換用MCP proxy
+ *
+ * ## 目的
+ * 旧get-dom/get-network前提の呼び出し元を、汎用browser tool proxyへ段階的に寄せる。
+ */
 export class ProxyDOMGetter extends ProxyBrowserClient {
   async getDOM(signal: AbortSignal): Promise<string> {
     return await this.callTool("get_dom", {}, signal);

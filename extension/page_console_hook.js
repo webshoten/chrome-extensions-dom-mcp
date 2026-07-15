@@ -1,4 +1,13 @@
 (function () {
+  /*
+   * # Page console hook
+   *
+   * ## 目的
+   * ページ自身のconsole/error/unhandledrejectionを、拡張が読めるconsole eventとして橋渡しする。
+   *
+   * ## 説明
+   * console関数を書き換える必要があるためMAIN worldで実行し、取得結果はCustomEventでisolated worldへ渡す。
+   */
   const EVENT_NAME = "chrome-bridge-console-entry";
 
   if (window.__chromeBridgeConsoleHookInstalled) {
@@ -6,6 +15,7 @@
   }
   window.__chromeBridgeConsoleHookInstalled = true;
 
+  // AIへ渡すconsole値が大きくなりすぎないよう、深さと件数を制限したpreviewにします。
   function serialize(value, depth) {
     if (depth > 2) {
       return "[MaxDepth]";
@@ -60,9 +70,12 @@
       timestamp: new Date().toISOString(),
       url: location.href,
     };
-    window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: JSON.stringify(entry) }));
+    window.dispatchEvent(
+      new CustomEvent(EVENT_NAME, { detail: JSON.stringify(entry) }),
+    );
   }
 
+  // 元のconsole挙動を保ったまま、同じ内容を拡張側bufferへ複製します。
   for (const level of ["debug", "log", "info", "warn", "error"]) {
     const original = console[level];
     console[level] = function (...args) {

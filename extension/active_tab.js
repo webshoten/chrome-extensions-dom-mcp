@@ -1,4 +1,10 @@
 (function () {
+  /*
+   * # Active tab境界
+   *
+   * ## 目的
+   * 各browser toolが共通して「普段使いChromeの現在タブ」を対象にできるようにする。
+   */
   async function getActiveTab() {
     const tabs = await chrome.tabs.query({
       active: true,
@@ -12,6 +18,7 @@
     return tabs[0];
   }
 
+  // tool結果に共通して載せる、ユーザーが見ているタブの最小メタ情報です。
   function tabMeta(tab) {
     return {
       tabId: tab.id,

@@ -7,6 +7,8 @@ const DAEMON_ADDR = "127.0.0.1:9333";
 if (import.meta.main) {
   const command = Deno.args[0] ?? "mcp";
 
+  // bridgeはAI Agentから起動されるMCPプロセスと、Chrome拡張を待ち受けるdaemonを同じbinaryで分けます。
+  // 引数なしはMCPとして扱い、macOS LaunchAgentだけがdaemon引数で常駐側を起動する想定です。
   switch (command) {
     case "mcp":
       await runMCP(`http://${DAEMON_ADDR}`);

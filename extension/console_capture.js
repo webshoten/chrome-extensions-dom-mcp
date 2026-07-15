@@ -1,4 +1,13 @@
 (function () {
+  /*
+   * # Console buffer
+   *
+   * ## 目的
+   * MAIN worldで発生したconsole eventをisolated worldで保持し、backgroundから安全に取得できるようにする。
+   *
+   * ## 説明
+   * ページのconsole hook本体とは分け、Chrome拡張messageで読み出せる短期bufferだけを担当する。
+   */
   const EVENT_NAME = "chrome-bridge-console-entry";
   const MAX_ENTRIES = 500;
 
@@ -9,6 +18,7 @@
   globalThis.__chromeBridgeConsoleEntries =
     globalThis.__chromeBridgeConsoleEntries || [];
 
+  // Consoleは流量が多くなり得るため、service workerへ返す前のページ内bufferを固定件数に抑えます。
   function pushEntry(entry) {
     globalThis.__chromeBridgeConsoleEntries.push(entry);
     while (globalThis.__chromeBridgeConsoleEntries.length > MAX_ENTRIES) {
@@ -45,6 +55,7 @@
     }
   });
 
+  // backgroundからのget_console要求に応答する、content script側の読み出し口です。
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || message.type === "chrome_bridge_console_ping") {
       sendResponse({ ok: true });

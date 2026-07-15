@@ -1,4 +1,13 @@
 (function () {
+  /*
+   * # Network取得tool
+   *
+   * ## 目的
+   * AI Agentが現在タブの通信履歴を、失敗調査やGraphQL調査に使える形で取得できるようにする。
+   *
+   * ## 説明
+   * Chrome拡張のwebRequestイベントを短期bufferに保持し、MCP呼び出し時にredaction済みレポートへ整形する。
+   */
   const MAX_NETWORK_ENTRIES = 500;
   const DEFAULT_NETWORK_LIMIT = 50;
   const MAX_NETWORK_LIMIT = 200;
@@ -56,6 +65,7 @@
     }
   }
 
+  // webRequestはrequest lifecycleごとに別イベントで届くため、requestId単位で1つのentryへ集約します。
   function ensureEntry(details) {
     let entry = entryByRequestId.get(details.requestId);
     if (entry) {
@@ -107,19 +117,23 @@
     const entry = ensureEntry(details);
     entry.statusCode = details.statusCode ?? entry.statusCode;
     entry.completedAt = toISOTime(details.timeStamp);
-    entry.durationMs = Date.parse(entry.completedAt) - Date.parse(entry.startedAt);
+    entry.durationMs = Date.parse(entry.completedAt) -
+      Date.parse(entry.startedAt);
   }
 
   function recordError(details) {
     const entry = ensureEntry(details);
     entry.error = details.error || "unknown error";
     entry.completedAt = toISOTime(details.timeStamp);
-    entry.durationMs = Date.parse(entry.completedAt) - Date.parse(entry.startedAt);
+    entry.durationMs = Date.parse(entry.completedAt) -
+      Date.parse(entry.startedAt);
   }
 
   function normalizeQuery(rawQuery) {
     const query = rawQuery && typeof rawQuery === "object" ? rawQuery : {};
-    let limit = Number.isInteger(query.limit) ? query.limit : DEFAULT_NETWORK_LIMIT;
+    let limit = Number.isInteger(query.limit)
+      ? query.limit
+      : DEFAULT_NETWORK_LIMIT;
     limit = Math.min(Math.max(limit, 1), MAX_NETWORK_LIMIT);
 
     let maxPreviewBytes = Number.isInteger(query.maxPreviewBytes)
@@ -137,6 +151,7 @@
     };
   }
 
+  // URL、header、bodyの値はAIへ渡る前にこのtool内でredactionします。
   function isSensitiveName(name) {
     const normalized = String(name || "").toLowerCase();
     return SENSITIVE_HEADER_NAMES.has(normalized) ||
@@ -178,7 +193,10 @@
   function redactText(value, redactions, path) {
     let text = String(value ?? "");
     const before = text;
-    text = text.replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+\b/gi, "Bearer [REDACTED]");
+    text = text.replace(
+      /\bBearer\s+[A-Za-z0-9._~+/=-]+\b/gi,
+      "Bearer [REDACTED]",
+    );
     text = text.replace(
       /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
       "[REDACTED_EMAIL]",
@@ -195,7 +213,9 @@
 
   function redactJsonValue(value, redactions, path) {
     if (Array.isArray(value)) {
-      return value.map((item, index) => redactJsonValue(item, redactions, `${path}.${index}`));
+      return value.map((item, index) =>
+        redactJsonValue(item, redactions, `${path}.${index}`)
+      );
     }
     if (value && typeof value === "object") {
       const output = {};
@@ -277,12 +297,16 @@
       return null;
     }
     const query = typeof json.query === "string" ? json.query : "";
-    const operationName = typeof json.operationName === "string" ? json.operationName : "";
+    const operationName = typeof json.operationName === "string"
+      ? json.operationName
+      : "";
     if (!query && !operationName) {
       return null;
     }
 
-    const operationMatch = query.match(/\b(query|mutation|subscription)\s+([A-Za-z0-9_]+)?/);
+    const operationMatch = query.match(
+      /\b(query|mutation|subscription)\s+([A-Za-z0-9_]+)?/,
+    );
     const variables = json.variables && typeof json.variables === "object" &&
         !Array.isArray(json.variables)
       ? Object.keys(json.variables)
@@ -361,15 +385,30 @@
       formatted.graphql?.operationName,
       formatted.graphql?.operationType,
       (formatted.graphql?.variableKeys || []).join(" "),
-    ].filter((value) => value !== null && value !== undefined).join(" ").toLowerCase();
+    ].filter((value) => value !== null && value !== undefined).join(" ")
+      .toLowerCase();
   }
 
+  // response bodyはwebRequestだけでは取れないため、CDPが必要な情報として明示します。
   function formatEntry(entry, query) {
     const redactions = [];
-    const requestHeaders = redactHeaderList(entry.requestHeaders, redactions, "request.headers");
-    const responseHeaders = redactHeaderList(entry.responseHeaders, redactions, "response.headers");
+    const requestHeaders = redactHeaderList(
+      entry.requestHeaders,
+      redactions,
+      "request.headers",
+    );
+    const responseHeaders = redactHeaderList(
+      entry.responseHeaders,
+      redactions,
+      "response.headers",
+    );
     const body = query.includeBodyPreview
-      ? formatBody(entry.requestBody, query.maxPreviewBytes, redactions, "request.body")
+      ? formatBody(
+        entry.requestBody,
+        query.maxPreviewBytes,
+        redactions,
+        "request.body",
+      )
       : {
         bodyPreview: "",
         bodySize: null,
@@ -412,6 +451,7 @@
     };
   }
 
+  // Chromeの環境差でextraHeadersが拒否される場合は、取得できる範囲へ落として登録します。
   function addWebRequestListener(event, listener, filter, extraInfoSpec) {
     try {
       event.addListener(listener, filter, extraInfoSpec);
@@ -427,6 +467,7 @@
     }
   }
 
+  // 現在タブのNetwork bufferを検索し、AIが読める件数制限付きレポートへ変換します。
   async function getNetwork(rawQuery) {
     const tab = await globalThis.BridgeActiveTab.getActiveTab();
     const query = normalizeQuery(rawQuery);
@@ -446,7 +487,9 @@
       }
       return true;
     });
-    const resultEntries = matched.slice(-query.limit).reverse().map((item) => item.entry);
+    const resultEntries = matched.slice(-query.limit).reverse().map((item) =>
+      item.entry
+    );
 
     return {
       ...globalThis.BridgeActiveTab.tabMeta(tab),
@@ -464,6 +507,7 @@
     };
   }
 
+  // background service worker起動時に、Network履歴を貯めるためのイベント購読を登録します。
   function register() {
     if (registered) {
       return;
@@ -473,12 +517,22 @@
     addWebRequestListener(chrome.webRequest.onBeforeRequest, recordStart, {
       urls: ["<all_urls>"],
     }, ["requestBody"]);
-    addWebRequestListener(chrome.webRequest.onBeforeSendHeaders, recordRequestHeaders, {
-      urls: ["<all_urls>"],
-    }, ["requestHeaders", "extraHeaders"]);
-    addWebRequestListener(chrome.webRequest.onHeadersReceived, recordResponseHeaders, {
-      urls: ["<all_urls>"],
-    }, ["responseHeaders", "extraHeaders"]);
+    addWebRequestListener(
+      chrome.webRequest.onBeforeSendHeaders,
+      recordRequestHeaders,
+      {
+        urls: ["<all_urls>"],
+      },
+      ["requestHeaders", "extraHeaders"],
+    );
+    addWebRequestListener(
+      chrome.webRequest.onHeadersReceived,
+      recordResponseHeaders,
+      {
+        urls: ["<all_urls>"],
+      },
+      ["responseHeaders", "extraHeaders"],
+    );
     chrome.webRequest.onCompleted.addListener(recordComplete, {
       urls: ["<all_urls>"],
     });

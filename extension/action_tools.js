@@ -1,6 +1,16 @@
 (function () {
+  /*
+   * # 操作系browser tools
+   *
+   * ## 目的
+   * AI Agentが現在タブ上でクリック、入力、待機、URL遷移を実行できるようにする。
+   *
+   * ## 説明
+   * DOM操作はページ内で実行する必要があるため、backgroundから対象タブへscriptを注入して実行する。
+   */
   const MAX_WAIT_MS = 9_000;
 
+  // Chrome APIで対象タブへ処理を渡し、ページ内実行結果にtab metaを付けて返します。
   async function runPageCommand(command) {
     const tab = await globalThis.BridgeActiveTab.getActiveTab();
     const results = await chrome.scripting.executeScript({
@@ -19,6 +29,7 @@
     };
   }
 
+  // 対象ページ内で実行される操作本体です。Chrome APIや拡張状態には依存させません。
   function executePageCommand(command) {
     const input = command.input && typeof command.input === "object"
       ? command.input
@@ -60,7 +71,9 @@
       return {
         tagName: element.tagName.toLowerCase(),
         id: element.id || "",
-        className: typeof element.className === "string" ? element.className : "",
+        className: typeof element.className === "string"
+          ? element.className
+          : "",
         text: elementText(element).slice(0, 160),
         visible: isVisible(element),
       };
@@ -75,6 +88,7 @@
       return exact ? left === right : left.includes(right);
     }
 
+    // click/fillは操作可能な要素を優先し、単なる表示テキストへの誤操作を避けます。
     function interactiveTextSelector() {
       return [
         "button",
@@ -90,6 +104,7 @@
       ].join(",");
     }
 
+    // wait_forは表示確認が目的なので、見出しや本文テキストも検索対象に含めます。
     function readableTextSelector() {
       return [
         interactiveTextSelector(),
@@ -119,13 +134,17 @@
     }
 
     function findTarget(options) {
-      if (typeof options.selector === "string" && options.selector.trim() !== "") {
+      if (
+        typeof options.selector === "string" && options.selector.trim() !== ""
+      ) {
         const candidates = [...document.querySelectorAll(options.selector)];
         const target = options.visibleOnly === false
           ? candidates[0]
           : candidates.find(isVisible);
         if (!target) {
-          throw new Error(`element not found for selector: ${options.selector}`);
+          throw new Error(
+            `element not found for selector: ${options.selector}`,
+          );
         }
         return target;
       }
@@ -153,13 +172,16 @@
       ) {
         return element;
       }
-      const nested = element.querySelector("input, textarea, select, [contenteditable='true']");
+      const nested = element.querySelector(
+        "input, textarea, select, [contenteditable='true']",
+      );
       if (nested) {
         return nested;
       }
       throw new Error("matched element is not fillable");
     }
 
+    // React等がvalue setterをhookしている場合でも、通常のinputイベントとして検知されやすくします。
     function setNativeValue(element, value) {
       const prototype = Object.getPrototypeOf(element);
       const descriptor = Object.getOwnPropertyDescriptor(prototype, "value");
@@ -204,7 +226,9 @@
       } else {
         setNativeValue(element, input.value);
       }
-      element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+      element.dispatchEvent(
+        new InputEvent("input", { bubbles: true, inputType: "insertText" }),
+      );
       element.dispatchEvent(new Event("change", { bubbles: true }));
 
       return {
@@ -225,9 +249,10 @@
           ...input,
           visibleOnly: state === "visible" ? true : input.visibleOnly,
         };
-        element = typeof options.selector === "string" && options.selector.trim() !== ""
-          ? findTarget(options)
-          : findByText(options.text, options, readableTextSelector());
+        element =
+          typeof options.selector === "string" && options.selector.trim() !== ""
+            ? findTarget(options)
+            : findByText(options.text, options, readableTextSelector());
       } catch (_error) {
         element = null;
       }
@@ -267,6 +292,7 @@
     return await runPageCommand({ name: "fill", input });
   }
 
+  // 待機ループはservice worker側で管理し、ページ内scriptは毎回1回の状態確認だけを行います。
   async function waitFor(input) {
     const timeoutMs = Math.min(
       Math.max(Number(input?.timeoutMs) || 5_000, 100),

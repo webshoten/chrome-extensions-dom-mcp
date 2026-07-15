@@ -1,5 +1,6 @@
 import type { BrowserToolName } from "../protocol/types.ts";
 
+// MCP層がdaemonやテスト実装を同じ形で呼べるようにするbrowser tool実行境界です。
 export type BrowserToolRunner = {
   callTool(
     name: BrowserToolName,
@@ -8,6 +9,7 @@ export type BrowserToolRunner = {
   ): Promise<string>;
 };
 
+// AI Agentへ公開するMCP toolの名前、説明、入力schemaです。
 export type MCPToolDefinition = {
   name: BrowserToolName;
   description: string;
@@ -20,6 +22,7 @@ const emptyObjectSchema = {
   additionalProperties: false,
 };
 
+// AI Agentに見せる公開tool一覧です。実行本体ではなく、外部I/Fの契約だけをここに置きます。
 export const MCP_TOOLS: MCPToolDefinition[] = [
   {
     name: "get_dom",
@@ -225,12 +228,12 @@ export const MCP_TOOLS: MCPToolDefinition[] = [
 
 const TOOL_NAMES = new Set(MCP_TOOLS.map((tool) => tool.name));
 
-// MCP requestから来たtool名を、Chrome拡張へ送れるtool名に限定します。
+// MCP request由来の任意文字列を、公開済みbrowser tool名だけへ絞り込みます。
 export function isKnownToolName(name: string): name is BrowserToolName {
   return TOOL_NAMES.has(name as BrowserToolName);
 }
 
-// MCP toolの実行をtransport非依存のbrowser tool callへ変換します。
+// MCP固有のarguments形式を、daemon/拡張へ送るbrowser tool callへ変換します。
 export async function callMCPTool(
   runner: BrowserToolRunner,
   name: BrowserToolName,

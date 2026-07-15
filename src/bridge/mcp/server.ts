@@ -32,6 +32,7 @@ type ToolCallParams = {
 
 const REQUEST_TIMEOUT_MS = 10_000;
 
+// MCP request単位の待ち時間を制限し、daemonや拡張未応答時にAI Agentへエラーを返します。
 function timeoutSignal(
   ms: number,
 ): { signal: AbortSignal; cancel: () => void } {
@@ -43,6 +44,7 @@ function timeoutSignal(
   };
 }
 
+// browser toolのJSON文字列を、MCPのtool result形式へ包みます。
 function textToolResult(text: string): Record<string, unknown> {
   return {
     content: [
@@ -55,6 +57,15 @@ function textToolResult(text: string): Record<string, unknown> {
   };
 }
 
+/*
+ * # MCP stdio server
+ *
+ * ## 目的
+ * AI Agentからstdioで起動され、MCP JSON-RPC requestをdaemonのbrowser tool HTTP APIへ中継する。
+ *
+ * ## 説明
+ * このプロセスはChrome拡張と直接接続しない。接続状態は常駐daemonが持つ。
+ */
 export async function runMCP(baseURL: string): Promise<void> {
   const getter = new ProxyDOMGetter(baseURL);
   const decoder = new TextDecoder();
@@ -78,6 +89,7 @@ export async function runMCP(baseURL: string): Promise<void> {
   }
 }
 
+// stdioは行区切りJSON-RPCとして読み、id付きrequestだけresponseを返します。
 async function handleLine(getter: ProxyDOMGetter, line: string): Promise<void> {
   let request: MCPRequest;
   try {
@@ -95,6 +107,12 @@ async function handleLine(getter: ProxyDOMGetter, line: string): Promise<void> {
   );
 }
 
+/*
+ * # MCP request dispatcher
+ *
+ * ## 目的
+ * AI Agentから来るMCP methodを、tool一覧取得とbrowser tool実行へ振り分ける。
+ */
 export async function handleRequest(
   getter: BrowserToolRunner,
   request: MCPRequest,
@@ -144,6 +162,7 @@ export async function handleRequest(
   return response;
 }
 
+// MCP tool名とargumentsを検証し、transport非依存のbrowser tool実行へ変換します。
 async function handleToolCall(
   getter: BrowserToolRunner,
   rawParams: unknown,

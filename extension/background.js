@@ -6,6 +6,15 @@ importScripts(
   "action_tools.js",
 );
 
+/*
+ * # Chrome拡張service worker
+ *
+ * ## 目的
+ * daemonから届くbrowser tool requestを、Chrome内で実行できる各tool実装へ振り分ける。
+ *
+ * ## 説明
+ * 拡張側からdaemonへWebSocket接続を張る。daemonはこの接続を通じて現在タブへアクセスする。
+ */
 const WS_URL = "ws://127.0.0.1:9333/ws";
 const PING_INTERVAL_MS = 20_000;
 const RECONNECT_DELAY_MS = 3_000;
@@ -52,6 +61,7 @@ function scheduleReconnect() {
   }, RECONNECT_DELAY_MS);
 }
 
+// MV3 service workerの接続維持と、daemonから見た拡張生存確認のために送る軽量messageです。
 function sendPing() {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
     return;
@@ -67,6 +77,7 @@ function sendPing() {
   log("sent ping", message);
 }
 
+// daemonへtool responseやerrorを返す出口です。接続が閉じている場合は再接続側に任せます。
 function sendMessage(message) {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
     log("cannot send message because websocket is not open", message);
@@ -76,6 +87,7 @@ function sendMessage(message) {
   socket.send(JSON.stringify(message));
 }
 
+// daemonから届いたtool requestを、tool名ごとの実装へ委譲します。
 async function handleRequest(message) {
   const handler = TOOL_HANDLERS[message.type];
   if (!handler) {
@@ -107,6 +119,7 @@ function startPingLoop() {
   pingTimer = setInterval(sendPing, PING_INTERVAL_MS);
 }
 
+// daemonとのWebSocket接続を確立し、切断時は拡張側から再接続します。
 function connect() {
   if (
     socket &&
@@ -168,5 +181,6 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   connect();
 });
 
+// Network履歴はイベント購読型なので、service worker起動時に一度だけ登録します。
 globalThis.BridgeNetworkTools.register();
 connect();
