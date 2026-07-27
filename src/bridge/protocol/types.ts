@@ -21,7 +21,8 @@ export type BrowserToolName =
   | "click"
   | "fill"
   | "wait_for"
-  | "navigate";
+  | "navigate"
+  | "take_screenshot";
 
 // Network履歴をAIのデバッグ用途で検索・要約するための入力です。
 export type NetworkQuery = {
@@ -62,4 +63,20 @@ export type WaitForInput = ElementTarget & {
 
 export type NavigateInput = {
   url?: string;
+};
+
+// 現在タブの表示範囲を撮影するときの画像形式です。
+export type ScreenshotInput = {
+  format?: "png" | "jpeg";
+  quality?: number;
+};
+
+// Chrome拡張からMCP層へ渡す、base64画像と撮影時のタブ情報です。
+export type ScreenshotResult = {
+  tabId: number;
+  url: string;
+  title: string;
+  capturedAt: string;
+  mimeType: "image/png" | "image/jpeg";
+  data: string;
 };

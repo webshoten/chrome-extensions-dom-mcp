@@ -2,19 +2,20 @@ import { assertEquals } from "jsr:@std/assert";
 import type { BrowserToolName } from "../protocol/types.ts";
 import { handleRequest } from "./server.ts";
 import type { BrowserToolRunner } from "./tools.ts";
+import { MCPHttpTransport } from "./http_transport.ts";
 
 class FakeBrowserGetter implements BrowserToolRunner {
   calls: Array<{ name: BrowserToolName; payload: unknown }> = [];
 
   constructor(
-    private readonly payloads: Partial<Record<BrowserToolName, string>> = {},
+    private readonly payloads: Partial<Record<BrowserToolName, unknown>> = {},
   ) {}
 
   callTool(
     name: BrowserToolName,
     payload: unknown,
     _signal: AbortSignal,
-  ): Promise<string> {
+  ): Promise<unknown> {
     this.calls.push({ name, payload });
     return Promise.resolve(this.payloads[name] ?? `{"ok":true}`);
   }
@@ -39,6 +40,7 @@ Deno.test("handleRequest lists tools", async () => {
     "fill",
     "wait_for",
     "navigate",
+    "take_screenshot",
   ]);
 });
 
@@ -124,4 +126,100 @@ Deno.test("handleRequest calls click tool", async () => {
     },
   }]);
   assertEquals(result.content[0].text, `{"action":"click","ok":true}`);
+});
+
+Deno.test("handleRequest returns screenshot as MCP image content", async () => {
+  const getter = new FakeBrowserGetter({
+    take_screenshot: {
+      tabId: 42,
+      url: "https://example.com",
+      title: "Example",
+      capturedAt: "2026-07-27T00:00:00.000Z",
+      mimeType: "image/png",
+      data: "iVBORw0KGgo=",
+    },
+  });
+  const response = await handleRequest(getter, {
+    jsonrpc: "2.0",
+    id: 5,
+    method: "tools/call",
+    params: {
+      name: "take_screenshot",
+      arguments: { format: "png" },
+    },
+  });
+
+  const result = response.result as {
+    content: Array<Record<string, unknown>>;
+  };
+  assertEquals(response.error, undefined);
+  assertEquals(getter.calls, [{
+    name: "take_screenshot",
+    payload: { format: "png" },
+  }]);
+  assertEquals(result.content, [
+    {
+      type: "image",
+      mimeType: "image/png",
+      data: "iVBORw0KGgo=",
+    },
+    {
+      type: "text",
+      text: JSON.stringify({
+        tabId: 42,
+        url: "https://example.com",
+        title: "Example",
+        capturedAt: "2026-07-27T00:00:00.000Z",
+      }),
+    },
+  ]);
+});
+
+Deno.test("MCP HTTP transport initializes without a CLI process", async () => {
+  const transport = new MCPHttpTransport(new FakeBrowserGetter());
+  const response = await transport.handleRequest(
+    new Request(
+      "http://127.0.0.1:9333/mcp",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 10,
+          method: "initialize",
+          params: {
+            protocolVersion: "2025-06-18",
+            capabilities: {},
+            clientInfo: { name: "test", version: "1" },
+          },
+        }),
+      },
+    ),
+  );
+
+  const payload = await response.json();
+  assertEquals(response.status, 200);
+  assertEquals(response.headers.get("content-type"), "application/json");
+  assertEquals(payload.id, 10);
+  assertEquals(payload.result.serverInfo.name, "chrome-bridge");
+});
+
+Deno.test("MCP HTTP transport accepts initialized notification", async () => {
+  const transport = new MCPHttpTransport(new FakeBrowserGetter());
+  const response = await transport.handleRequest(
+    new Request(
+      "http://127.0.0.1:9333/mcp",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method: "notifications/initialized",
+        }),
+      },
+    ),
+  );
+
+  assertEquals(response.status, 202);
+  assertEquals(await response.text(), "");
 });

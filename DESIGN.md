@@ -10,24 +10,22 @@ Chrome拡張API、ページ内API、必要に応じたDevTools/CDPを活用し�
 
 ## 2. 想定ユーザー体験
 
-現在の本線はmacOS daemon方式にする。
-ユーザーは初回セットアップで`bridge` binaryとLaunchAgentを入れ、普段はいつものChromeでページを開き、Codex/Claudeに依頼するだけでDOMやNetwork情報を取得できる。
-Deno DesktopはIntel Macで`.app`起動できない既知問題があるため、改善されるまで将来対応にする。
+ユーザーは`Bridge.app`とChrome拡張を導入し、Desktop UIからCodex/Claude Codeを登録する。
+通常はmacOSログイン時にBridgeが起動し、コマンド操作なしでDOMやNetwork情報を取得できる。
 
 詳細: [design/02-user-experience.md](design/02-user-experience.md)
 
 ## 3. 全体アーキテクチャ
 
-構成は `AI ←stdio/MCP→ bridge mcp ←HTTP→ bridge daemon ←WebSocket→ Chrome拡張 → 対象ページ` とする。
-AIは`bridge mcp`をMCP stdioサーバーとして起動する。
-`bridge mcp`はAIとのMCP通信を担当し、localhostのdaemonへHTTPで問い合わせる。
-`bridge daemon`は`127.0.0.1:9333`でHTTP APIとWebSocketを待ち受け、Chrome拡張からの接続を受ける。
+構成は `AI ←Streamable HTTP MCP→ Bridge.app ←WebSocket→ Chrome拡張 → 対象ページ` とする。
+Bridge.appはDesktop UI、MCP、Chrome拡張接続、状態管理を同じプロセスで担う。
+Chrome拡張は普段使いChrome内でChrome APIを実行し、将来は`chrome.debugger`経由のCDPも担当する。
 
 詳細: [design/03-architecture.md](design/03-architecture.md)
 
 ## 4. コンポーネント構成
 
-Deno bridgeはMCP処理を行う短命プロセスと、WS待ち受けを行うdaemonに分かれる。
+Bridge.appはMCP HTTPとWS待ち受けを持ち、Desktop UIから状態確認と初回設定を行う。
 Chrome拡張のbackground service workerはWS接続、keepalive、リクエスト振り分けを担当する。
 content scriptまたは`chrome.scripting.executeScript`でページ内DOMへアクセスする。
 拡張パネルは接続状態表示に絞る。
@@ -44,8 +42,8 @@ Denoコード変更後は`deno fmt`、`deno task check`、`deno test`を必須�
 
 ## 5. 通信設計
 
-MCP stdioはCodex/Claudeと`bridge mcp`の外部インターフェースとして使う。
-WebSocketは`bridge daemon`とChrome拡張の内部ブリッジとして使う。
+Streamable HTTP MCPはCodex/Claude Codeとの外部インターフェースとして使う。
+WebSocketはBridge.appとChrome拡張の内部ブリッジとして使う。
 メッセージには`id`、`type`、`payload`を持たせ、リクエストとレスポンスを対応付ける。
 各リクエストにはタイムアウトを設け、拡張未応答のまま待ち続けない。
 
@@ -85,10 +83,13 @@ DOMはHTML本文だけでなく、URL、title、取得時刻、サイズなど�
 
 ## 10. 操作系ツール設計
 
-操作系はMCPツールとして`click`、`fill`、`wait_for`、`navigate`、将来の`screenshot`などを公開する。
+操作系はMCPツールとして`click`、`fill`、`wait_for`、`navigate`を公開する。
+画面確認用に`take_screenshot`で現在タブの表示範囲をMCP画像として取得する。
 要素指定はCSSセレクタを基本にし、必要に応じてテキスト、座標、アクセシビリティ情報も扱う。
 
 詳細: [design/10-actions.md](design/10-actions.md)
+
+Tool I/F: [design/tools/take-screenshot.md](design/tools/take-screenshot.md)
 
 ## 11. DevTools級情報取得
 
@@ -123,32 +124,28 @@ DOM本文やheaders/bodyなどの機微情報は原則ログに出さない。
 
 ## 15. 配布とセットアップ
 
-bridgeはDeno compileでmacOS単体バイナリとして配布し、install scriptでLaunchAgentへ登録する。
+Bridge.appをmacOSアプリとして配布し、初回画面からAI Agent登録とログイン時起動を設定する。
 Chrome拡張は当面Load unpackedで導入し、将来は正式配布も検討する。
-MCP登録は`~/.local/bin/bridge`を指す形にする。
+MCP登録先は`http://127.0.0.1:9333/mcp`とする。
 
 詳細: [design/15-distribution-setup.md](design/15-distribution-setup.md)
 
 ## 16. 開発フェーズ
 
-フェーズ1は、Deno bridgeで既存のMCP/daemonインターフェースを再現する。
-フェーズ2は、macOS daemon配布とLaunchAgent installを安定させる。
-フェーズ3以降で`get_network`、`get_console`、操作系を広げる。
-現在は`get_console`と基本操作系の初期実装まで進んでいる。
+Bridge.app、Streamable HTTP MCP、WebSocket接続、DOM/Network/Console/基本操作/スクリーンショットまで実装済み。
+次はCDPによるNetwork詳細化、配布用DMG、Chrome拡張の配布導線を進める。
 
 詳細: [design/16-development-phases.md](design/16-development-phases.md)
 
 ## 17. PoC計画
 
-最初にDeno bridgeのWS待ち受けを作る。
-次にMV3 service workerから接続し、20秒pingで生存確認する。
-その後、切断時の再接続と拡張未接続時のエラーを確認する。
-最後に`get_dom`と`get_network`をMCP経由で確認する。
+Bridge.appの起動、Chrome拡張の自動接続、MCP初期化、tool実行を一連で確認する。
+Desktop UIは現在・初期導入・デバッグの各状態を実機表示で確認する。
 
 詳細: [design/17-poc-plan.md](design/17-poc-plan.md)
 
 ## 18. 未決事項
 
-複数ウィンドウ/複数プロファイル時の対象タブ選択、WS認証トークン、Chrome Web Store配布、Deno Desktop再検討時期は未決。
+複数ウィンドウ/複数プロファイル時の対象タブ選択、WS認証トークン、Chrome Web Store配布、CDP有効化UXは未決。
 
 詳細: [design/18-open-questions.md](design/18-open-questions.md)

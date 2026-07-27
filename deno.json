@@ -1,12 +1,19 @@
 {
   "name": "chrome-bridge-mcp",
   "version": "0.1.0",
-  "exports": "./src/bridge/main.ts",
+  "exports": "./src/desktop/main.ts",
   "tasks": {
-    "check": "deno check src/bridge/main.ts",
+    "check": "deno check --desktop src/desktop/main.ts",
     "test": "deno test --allow-net=127.0.0.1:9333",
-    "daemon:dev": "deno run --allow-net=127.0.0.1:9333 src/bridge/main.ts daemon",
-    "build:macos": "scripts/build-release-macos.sh"
+    "desktop:dev": "deno desktop --hmr --allow-net=127.0.0.1:9333 --allow-env=HOME,PATH,DENO_SERVE_ADDRESS --allow-read --allow-write --allow-run --include=src/desktop/assets/tray-icon.png --include=src/desktop/assets/tray-icon-dark.png src/desktop/main.ts",
+    "build:macos": "scripts/build-desktop-macos.sh"
+  },
+  "desktop": {
+    "app": {
+      "name": "Bridge",
+      "identifier": "com.webshoten.bridge"
+    },
+    "backend": "webview"
   },
   "fmt": {
     "include": ["src/**/*.ts", "experiments/**/*.ts"]

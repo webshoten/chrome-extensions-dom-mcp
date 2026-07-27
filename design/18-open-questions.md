@@ -2,20 +2,10 @@
 
 [設計書トップへ戻る](../DESIGN.md)
 
-## 概要
-
-まだ決まっていない仕様、実装前に検証が必要な点、判断を保留している設計をここに集める。
-設計章へ曖昧なまま混ぜず、決まった時点で該当章へ移す。
-
-## 未決事項
-
 - 複数ウィンドウ/複数プロファイル時の対象タブ選択
-- DOMの最大サイズ、切り詰め方、script/style除外方針
-- WS認証トークンの生成、保存、初回共有方法の詳細
-- 操作系にユーザー確認を挟む条件
-- Chrome Web Store配布を目指す時期
-- Deno Desktop 2.9.0のmacOS生成物で、最小アプリでも`Could not find standalone binary section in dylib`が出る問題の解消方法
-
-## 決定時の扱い
-
-未決事項が決まったら、このファイルから削除し、対応する章別設計ファイルへ反映する。
+- DOMの最大サイズと切り詰め方
+- localhost MCPとWebSocketの認証方式
+- 操作系toolでユーザー確認を挟む条件
+- Chrome Web Store配布時期
+- CDP attachを有効化するUXと権限説明
+- Developer ID署名、notarization、自動更新

@@ -4,6 +4,7 @@ importScripts(
   "network_tools.js",
   "console_tools.js",
   "action_tools.js",
+  "screenshot_tools.js",
 );
 
 /*
@@ -32,6 +33,8 @@ const TOOL_HANDLERS = {
   fill: (payload) => globalThis.BridgeActionTools.fill(payload),
   wait_for: (payload) => globalThis.BridgeActionTools.waitFor(payload),
   navigate: (payload) => globalThis.BridgeActionTools.navigate(payload),
+  take_screenshot: (payload) =>
+    globalThis.BridgeScreenshotTools.takeScreenshot(payload),
 };
 
 function log(message, detail) {

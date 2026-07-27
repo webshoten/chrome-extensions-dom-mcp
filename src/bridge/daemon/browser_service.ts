@@ -35,35 +35,4 @@ export class BrowserService {
   }
 }
 
-/*
- * # MCPプロセス用browser tool proxy
- *
- * ## 目的
- * AI Agentから起動された短命MCPプロセスを、常駐daemonのbrowser tool HTTP APIへ接続する。
- *
- * ## 説明
- * MCPプロセスはChrome拡張とのWebSocket接続を持たず、daemonへHTTPで委譲する。
- */
-export class ProxyBrowserClient {
-  constructor(private readonly baseURL: string) {}
-
-  async callTool(
-    name: BrowserToolName,
-    payload: unknown,
-    signal: AbortSignal,
-  ): Promise<string> {
-    const response = await fetch(`${this.baseURL}/tool/${name}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload ?? {}),
-      signal,
-    });
-    const body = await response.text();
-    if (!response.ok) {
-      throw new Error(body);
-    }
-    return body;
-  }
-}
-
 export type BrowserToolResult = BridgeMessage;

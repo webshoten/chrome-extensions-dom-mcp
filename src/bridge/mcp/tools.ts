@@ -6,7 +6,7 @@ export type BrowserToolRunner = {
     name: BrowserToolName,
     payload: unknown,
     signal: AbortSignal,
-  ): Promise<string>;
+  ): Promise<unknown>;
 };
 
 // AI Agentへ公開するMCP toolの名前、説明、入力schemaです。
@@ -224,6 +224,29 @@ export const MCP_TOOLS: MCPToolDefinition[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: "take_screenshot",
+    description:
+      "Capture the visible viewport of the active Chrome tab and return it as an image.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        format: {
+          type: "string",
+          enum: ["png", "jpeg"],
+          description: "Image format. Defaults to png.",
+        },
+        quality: {
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
+          description:
+            "JPEG quality from 1 to 100. Ignored for png. Defaults to 90.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
 ];
 
 const TOOL_NAMES = new Set(MCP_TOOLS.map((tool) => tool.name));
@@ -239,6 +262,6 @@ export async function callMCPTool(
   name: BrowserToolName,
   args: unknown,
   signal: AbortSignal,
-): Promise<string> {
+): Promise<unknown> {
   return await runner.callTool(name, args ?? {}, signal);
 }

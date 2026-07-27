@@ -1,5 +1,6 @@
 import type { BrowserToolName, NetworkQuery } from "../protocol/types.ts";
-import { BrowserService, ProxyBrowserClient } from "./browser_service.ts";
+import { MCPHttpTransport } from "../mcp/http_transport.ts";
+import { BrowserService } from "./browser_service.ts";
 import { WebSocketBridge } from "./ws_bridge.ts";
 
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -37,6 +38,7 @@ const BROWSER_TOOLS = new Set<BrowserToolName>([
   "fill",
   "wait_for",
   "navigate",
+  "take_screenshot",
 ]);
 
 // daemonのHTTP入口で受け付けるtool名を、Chrome拡張へ送れるbrowser toolだけに限定します。
@@ -55,6 +57,7 @@ function isBrowserToolName(value: string): value is BrowserToolName {
  */
 export class DOMServer {
   readonly #service: BrowserService;
+  readonly #mcp: MCPHttpTransport;
   #lastToolCallAt = new Map<BrowserToolName, string>();
 
   constructor(
@@ -62,17 +65,7 @@ export class DOMServer {
     private readonly bridge: WebSocketBridge,
   ) {
     this.#service = new BrowserService(bridge);
-  }
-
-  listenAndServe(): Deno.HttpServer<Deno.NetAddr> {
-    const [hostname, rawPort] = this.addr.split(":");
-    const port = Number(rawPort);
-    console.error(`bridge daemon listening on http://${this.addr}`);
-
-    return Deno.serve(
-      { hostname, port },
-      (request) => this.handleRequest(request),
-    );
+    this.#mcp = new MCPHttpTransport(this.#service);
   }
 
   // daemonの公開HTTP surfaceです。tool追加時も基本的には/tool/<toolName>へ寄せます。
@@ -84,6 +77,9 @@ export class DOMServer {
     }
     if (url.pathname === "/status") {
       return this.#handleStatus(request);
+    }
+    if (url.pathname === "/mcp") {
+      return await this.#mcp.handleRequest(request);
     }
     if (url.pathname === "/get-dom") {
       return await this.#handleLegacyGetDOM(request);
@@ -105,13 +101,19 @@ export class DOMServer {
     if (request.method !== "GET") {
       return textResponse("method not allowed\n", 405);
     }
-    return jsonResponse({
+    return jsonResponse(this.getStatus());
+  }
+
+  // Desktop UIと/statusが同じ実行状態を表示するためのsnapshotです。
+  getStatus(): Record<string, unknown> {
+    return {
       ok: true,
       extensionConnections: this.bridge.clientCount,
+      mcpEndpoint: `http://${this.addr}/mcp`,
       lastGetDOMAt: this.#lastToolCallAt.get("get_dom") ?? null,
       lastGetNetworkAt: this.#lastToolCallAt.get("get_network") ?? null,
       lastToolCalls: Object.fromEntries(this.#lastToolCallAt),
-    });
+    };
   }
 
   // curl確認や古い呼び出し元向けの互換入口です。新しいI/Fは/tool/get_domを使います。
@@ -180,21 +182,5 @@ export class DOMServer {
     } finally {
       timeout.cancel();
     }
-  }
-}
-
-/*
- * # 互換用MCP proxy
- *
- * ## 目的
- * 旧get-dom/get-network前提の呼び出し元を、汎用browser tool proxyへ段階的に寄せる。
- */
-export class ProxyDOMGetter extends ProxyBrowserClient {
-  async getDOM(signal: AbortSignal): Promise<string> {
-    return await this.callTool("get_dom", {}, signal);
-  }
-
-  async getNetwork(query: NetworkQuery, signal: AbortSignal): Promise<string> {
-    return await this.callTool("get_network", query, signal);
   }
 }

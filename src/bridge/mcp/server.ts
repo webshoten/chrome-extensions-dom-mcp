@@ -1,21 +1,21 @@
-import { ProxyDOMGetter } from "../daemon/http_api.ts";
 import {
   type BrowserToolRunner,
   callMCPTool,
   isKnownToolName,
   MCP_TOOLS,
 } from "./tools.ts";
+import type { BrowserToolName, ScreenshotResult } from "../protocol/types.ts";
 
-type JsonRpcID = string | number | null;
+export type JsonRpcID = string | number | null;
 
-type MCPRequest = {
+export type MCPRequest = {
   jsonrpc: string;
   id?: JsonRpcID;
   method: string;
   params?: unknown;
 };
 
-type MCPResponse = {
+export type MCPResponse = {
   jsonrpc: "2.0";
   id?: JsonRpcID;
   result?: unknown;
@@ -57,61 +57,47 @@ function textToolResult(text: string): Record<string, unknown> {
   };
 }
 
-/*
- * # MCP stdio server
- *
- * ## 目的
- * AI Agentからstdioで起動され、MCP JSON-RPC requestをdaemonのbrowser tool HTTP APIへ中継する。
- *
- * ## 説明
- * このプロセスはChrome拡張と直接接続しない。接続状態は常駐daemonが持つ。
- */
-export async function runMCP(baseURL: string): Promise<void> {
-  const getter = new ProxyDOMGetter(baseURL);
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  for await (const chunk of Deno.stdin.readable) {
-    buffer += decoder.decode(chunk, { stream: true });
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() ?? "";
-
-    for (const line of lines) {
-      if (line.trim() === "") {
-        continue;
-      }
-      await handleLine(getter, line);
-    }
+function isScreenshotResult(value: unknown): value is ScreenshotResult {
+  if (!value || typeof value !== "object") {
+    return false;
   }
-
-  if (buffer.trim() !== "") {
-    await handleLine(getter, buffer);
-  }
+  const result = value as Partial<ScreenshotResult>;
+  return (result.mimeType === "image/png" ||
+    result.mimeType === "image/jpeg") &&
+    typeof result.data === "string" &&
+    typeof result.url === "string" &&
+    typeof result.title === "string" &&
+    typeof result.capturedAt === "string";
 }
 
-// stdioは行区切りJSON-RPCとして読み、id付きrequestだけresponseを返します。
-async function handleLine(getter: ProxyDOMGetter, line: string): Promise<void> {
-  let request: MCPRequest;
-  try {
-    request = JSON.parse(line);
-  } catch {
-    return;
+// ScreenshotだけはMCPのimage contentへ変換し、それ以外は従来通りtextとして返します。
+function browserToolResult(
+  name: BrowserToolName,
+  result: unknown,
+): Record<string, unknown> {
+  if (name !== "take_screenshot") {
+    const text = typeof result === "string" ? result : JSON.stringify(result);
+    return textToolResult(text);
   }
-  if (request.id === undefined) {
-    return;
+  if (!isScreenshotResult(result)) {
+    throw new Error("invalid screenshot response from chrome extension");
   }
 
-  const response = await handleRequest(getter, request);
-  await Deno.stdout.write(
-    new TextEncoder().encode(`${JSON.stringify(response)}\n`),
-  );
+  const { data, mimeType, ...metadata } = result;
+  return {
+    content: [
+      { type: "image", data, mimeType },
+      { type: "text", text: JSON.stringify(metadata) },
+    ],
+    isError: false,
+  };
 }
 
 /*
  * # MCP request dispatcher
  *
  * ## 目的
- * AI Agentから来るMCP methodを、tool一覧取得とbrowser tool実行へ振り分ける。
+ * Desktop appのHTTP MCP入口から来るmethodを、tool一覧取得とbrowser tool実行へ振り分ける。
  */
 export async function handleRequest(
   getter: BrowserToolRunner,
@@ -178,7 +164,8 @@ async function handleToolCall(
 
   const timeout = timeoutSignal(REQUEST_TIMEOUT_MS);
   try {
-    return textToolResult(
+    return browserToolResult(
+      params.name,
       await callMCPTool(
         getter,
         params.name,
