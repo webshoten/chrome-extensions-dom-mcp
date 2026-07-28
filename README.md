@@ -6,7 +6,7 @@
 
 1. `Bridge.app`をApplicationsへ入れて開く
 2. Chrome拡張をLoad unpackedで読み込む
-3. Bridgeの「初期導入」でCodexまたはClaude Codeを追加する
+3. Bridgeの「MCP導入」でCodexまたはClaude Codeを追加する
 
 以後はmacOSログイン時にBridgeがメニューバーで起動します。通常利用でコマンド操作は不要です。
 

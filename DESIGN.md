@@ -140,7 +140,7 @@ Bridge.app、Streamable HTTP MCP、WebSocket接続、DOM/Network/Console/基本�
 ## 17. PoC計画
 
 Bridge.appの起動、Chrome拡張の自動接続、MCP初期化、tool実行を一連で確認する。
-Desktop UIは現在・初期導入・デバッグの各状態を実機表示で確認する。
+Desktop UIは現在・MCP導入の各状態を実機表示で確認する。
 
 詳細: [design/17-poc-plan.md](design/17-poc-plan.md)
 

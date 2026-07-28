@@ -17,7 +17,7 @@
 
 1. `Bridge.app`をApplicationsへ入れて開く
 2. Chrome拡張をLoad unpackedで導入する
-3. Bridgeの「初期導入」からAI Agentを追加する
+3. Bridgeの「MCP導入」からAI Agentを追加する
 4. 「ログイン時に起動」を有効にする
 
 通常起動ではDockとUIを表示する。ウィンドウを閉じた後とログイン時起動では、メニューバーだけで継続する。

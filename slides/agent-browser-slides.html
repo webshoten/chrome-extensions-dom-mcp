@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIエージェントにChromeを操作させる</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0f1117;
+    --panel: #1a1d27;
+    --panel2: #22263300;
+    --text: #e8eaf0;
+    --muted: #9aa3b5;
+    --accent: #5eb1ff;
+    --accent2: #ffb454;
+    --green: #7ee08a;
+    --red: #ff7a7a;
+    --border: #2c3140;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--text);
+    font-family: "Hiragino Sans", "Noto Sans JP", sans-serif; overflow: hidden; }
+
+  .slide {
+    display: none;
+    width: 100vw; height: 100vh;
+    padding: 6vh 7vw;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .slide.active { display: flex; }
+
+  h1 { font-size: 3.6rem; line-height: 1.35; }
+  h2 { font-size: 2.3rem; margin-bottom: 4vh; }
+  h2 .num { color: var(--muted); font-size: 1.3rem; margin-right: 0.9rem; font-weight: normal; }
+  p, li { font-size: 1.45rem; line-height: 1.9; }
+  ul { list-style: none; }
+  ul li { padding-left: 1.6rem; position: relative; margin-bottom: 1vh; }
+  ul li::before { content: "▸"; position: absolute; left: 0; color: var(--accent); }
+  .muted { color: var(--muted); }
+  .sub { font-size: 1.5rem; color: var(--muted); margin-top: 3.5vh; }
+  strong { color: var(--accent2); font-weight: 600; }
+  code { font-family: "SF Mono", Menlo, monospace; background: var(--panel);
+    padding: 0.1em 0.45em; border-radius: 6px; font-size: 0.9em; color: var(--green);
+    border: 1px solid var(--border); }
+
+  .cards { display: flex; gap: 1.8rem; margin-top: 1vh; }
+  .card { flex: 1; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 1.5rem 1.6rem; }
+  .card h3 { font-size: 1.4rem; margin-bottom: 0.3rem; }
+  .card .org { font-size: 1rem; color: var(--muted); margin-bottom: 1rem; }
+  .card p, .card li { font-size: 1.1rem; line-height: 1.75; }
+  .card ul li { margin-bottom: 0.6vh; padding-left: 1.3rem; }
+  .card.anthropic { border-top: 4px solid #d97757; }
+  .card.openai    { border-top: 4px solid #6fd6c3; }
+  .card.google    { border-top: 4px solid #6c9dff; }
+
+  .vs { display: flex; gap: 1.8rem; align-items: stretch; margin-top: 1vh; }
+  .vs .card { position: relative; }
+  .vs .catch { font-size: 1.7rem; font-weight: 600; margin-bottom: 1.2rem; }
+  .vs .catch.drive { color: var(--accent); }
+  .vs .catch.debug { color: var(--accent2); }
+
+  .rowtable { display: flex; flex-direction: column; gap: 1.3rem; margin-top: 0.5vh; }
+  .row { display: flex; align-items: stretch; gap: 1.4rem; }
+  .row .q { flex: 0 0 12.5rem; display: flex; flex-direction: column;
+    justify-content: center; align-items: flex-start;
+    font-size: 1.5rem; font-weight: 600; color: var(--accent); }
+  .row .q small { font-size: 0.95rem; color: var(--muted); font-weight: normal; margin-top: 0.2rem; }
+  .row .opts { flex: 1; display: flex; gap: 1.2rem; }
+  .opt { flex: 1; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 0.9rem 1.1rem; }
+  .opt b { display: block; font-size: 1.15rem; margin-bottom: 0.25rem; font-weight: 600; }
+  .opt span { font-size: 0.98rem; color: var(--muted); line-height: 1.55; display: block; }
+  span.chip { display: inline-block; font-size: 0.82rem; padding: 0.12em 0.65em;
+    border-radius: 999px; margin: 0.55rem 0.3rem 0 0; border: 1px solid; white-space: nowrap; }
+  .chip.ant { color: #e89578; border-color: #d9775766; background: #d977571a; }
+  .chip.oai { color: #6fd6c3; border-color: #6fd6c366; background: #6fd6c31a; }
+  .chip.goo { color: #8fb3ff; border-color: #6c9dff66; background: #6c9dff1a; }
+  .chip.ms  { color: #9be0a4; border-color: #7ee08a66; background: #7ee08a1a; }
+  .chip.mine { color: var(--accent2); border-color: #ffb45466; background: #ffb4541a;
+    font-size: 1rem; font-weight: 600; }
+
+  /* 2軸マトリクス */
+  .matrix { display: grid; grid-template-columns: 11rem 1fr 1fr; grid-template-rows: auto 1fr 1fr;
+    gap: 0.9rem; margin-top: 0.5vh; }
+  .mlabel { display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; font-size: 1.1rem; color: var(--muted); line-height: 1.5; }
+  .mlabel b { color: var(--text); }
+  .mcell { background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 1.2rem 1.4rem; min-height: 8.5rem; }
+  .mcell p { font-size: 1.05rem; color: var(--muted); line-height: 1.6; margin-top: 0.2rem; }
+  .mcell.hl { border: 2px dashed var(--accent2); background: #ffb4540d; }
+  .mcell.hl .void { font-size: 1.3rem; color: var(--accent2); font-weight: 600; }
+
+  /* 構成図 */
+  .diagram { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; }
+  .dbox { background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 0.75rem 2.4rem; font-size: 1.25rem; text-align: center; }
+  .dbox.hl { border-color: var(--accent); color: var(--accent); }
+  .darrow { color: var(--muted); font-size: 1rem; }
+
+  /* デモ手順 */
+  .flow { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; margin-top: 2vh; }
+  .flow .step { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 0.6rem 1rem; font-family: "SF Mono", Menlo, monospace; font-size: 1.15rem;
+    color: var(--green); }
+  .flow .fa { color: var(--muted); font-size: 1.2rem; }
+
+  .footer { position: fixed; bottom: 2.2vh; right: 3vw; color: var(--muted);
+    font-size: 1rem; user-select: none; }
+  .hint { position: fixed; bottom: 2.2vh; left: 3vw; color: var(--muted);
+    font-size: 0.95rem; opacity: 0.6; }
+</style>
+</head>
+<body>
+
+<!-- 1: タイトル -->
+<section class="slide active">
+  <p class="muted" style="font-size:1.3rem; margin-bottom:2.5vh;">社内LT</p>
+  <h1>AIエージェントに<br>Chromeを操作させる</h1>
+  <p class="sub">前半: 2026年、ブラウザ×エージェントの今<br>後半: 自作MCPの紹介 — chrome-dom-mcp</p>
+</section>
+
+<!-- 2: 前提 -->
+<section class="slide">
+  <h2><span class="num">00</span>前提: AIとブラウザの間には「橋」が要る</h2>
+  <ul>
+    <li>Claude Code も ChatGPT も、本体ができるのは<strong>文章の読み書きだけ</strong>。画面を「見る」機能もボタンを「押す」機能も本体にはない</li>
+    <li>ブラウザとの間を埋める<strong>橋の作り方</strong>が各社・各ツールで違う — 今日はその違いの話</li>
+    <li><strong>MCP</strong> = 橋をどのAIからも使えるようにする共通規格。<span class="muted">USBの差し込み口のようなもの</span></li>
+  </ul>
+</section>
+
+<!-- 3: 3大勢力 -->
+<section class="slide">
+  <h2><span class="num">01</span>3大AI企業、そろってブラウザ操作に参入</h2>
+  <div class="cards">
+    <div class="card anthropic">
+      <h3>Claude in Chrome / Computer Use</h3>
+      <p class="org">Anthropic</p>
+      <ul>
+        <li>拡張機能として<strong>普段のChromeに同居</strong>。サイドバーや<strong>Claude Code</strong>から今のタブを操作。正式提供中(有料プラン)</li>
+        <li>Computer Use: 画面をスクショで見てマウス・キーボードごと操作。2026年春に正式提供</li>
+      </ul>
+    </div>
+    <div class="card openai">
+      <h3>ChatGPT Work</h3>
+      <p class="org">OpenAI</p>
+      <ul>
+        <li><strong>数時間かかる複数手順の作業</strong>を丸ごと任せる(2026年7月〜)</li>
+        <li>自社ブラウザAtlasは終了を発表(今月) → ブラウザ操作は<strong>ChatGPT本体の内蔵ブラウザとCodexに統合</strong></li>
+      </ul>
+    </div>
+    <div class="card google">
+      <h3>Gemini in Chrome</h3>
+      <p class="org">Google</p>
+      <ul>
+        <li>I/O 2026でChromeに全面統合。ブラウザ本体がエージェント実行環境に</li>
+        <li>旅行計画・書類作成・予定調整などの複数手順タスク</li>
+      </ul>
+    </div>
+  </div>
+  <p class="sub">共通の流れ: ブラウザを使うのが人だけ → <strong>人とAIが一緒に使う</strong>ものに</p>
+</section>
+
+<!-- 3: エンジニアの道具 -->
+<section class="slide">
+  <h2><span class="num">02</span>開発者の道具は MCP で二強</h2>
+  <div class="vs">
+    <div class="card">
+      <p class="catch drive">Playwright MCP</p>
+      <p class="org">Microsoft</p>
+      <ul>
+        <li>ページの構造をテキストで受け取って操作する。<strong>軽くて速い</strong></li>
+        <li>Chrome / Firefox / WebKit / Edge 対応</li>
+        <li>操作手順を自動テストとして残せる → <strong>テストの自動実行向き</strong></li>
+      </ul>
+    </div>
+    <div class="card">
+      <p class="catch debug">Chrome DevTools MCP</p>
+      <p class="org">Google Chromeチーム</p>
+      <ul>
+        <li>CDP(Chromeを外から操縦するための公式の仕組み)に直結</li>
+        <li>通信履歴(<strong>Network</strong>)・エラーログ(<strong>Console</strong>)・速度計測まで見える</li>
+        <li>Chrome専用 → <strong>開発中の不具合調査向き</strong></li>
+      </ul>
+    </div>
+  </div>
+  <p class="sub">世の中の整理も「両方入れて使い分け」が定番。ほか browser-use(OSS)、Puppeteer MCP など</p>
+</section>
+
+<!-- 4: 方式の整理 -->
+<section class="slide">
+  <h2><span class="num">03</span>仕組みは3つの選択の組み合わせ</h2>
+  <div class="rowtable">
+    <div class="row">
+      <div class="q">目<small>どうやって見る?</small></div>
+      <div class="opts">
+        <div class="opt"><b>スクリーンショット</b><span>人間と同じ見え方。座標がわかる。トークン重い</span>
+          <span class="chip ant">Computer Use</span></div>
+        <div class="opt"><b>DOM(ページの構造データ)</b><span>文字情報として受け取る。正確・軽量。見た目は不明</span>
+          <span class="chip ms">Playwright MCP</span><span class="chip ant">Claude in Chrome</span></div>
+        <div class="opt"><b>Network・Console</b><span>通信履歴とエラーログ。人間に見えない裏側</span>
+          <span class="chip goo">DevTools MCP</span></div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="q">手<small>どうやって動かす?</small></div>
+      <div class="opts">
+        <div class="opt"><b>座標クリック</b><span>どんな画面でも可。レイアウト変化に弱い</span>
+          <span class="chip ant">Computer Use</span></div>
+        <div class="opt"><b>セレクタ指定</b><span>「送信ボタン」のように要素を名指し。正確・安定。実務の主役</span>
+          <span class="chip ms">Playwright MCP</span><span class="chip ant">Claude in Chrome</span></div>
+        <div class="opt"><b>JavaScript実行</b><span>何でもできる = 何でもできてしまう</span>
+          <span class="chip goo">DevTools MCP</span></div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="q">場所<small>どこで動かす?</small></div>
+      <div class="opts">
+        <div class="opt"><b>専用ブラウザを起動</b><span>普段のChromeとは別の環境。ログインも別管理</span>
+          <span class="chip ms">Playwright MCP</span><span class="chip goo">DevTools MCP</span><span class="chip oai">ChatGPT Work(内蔵)</span></div>
+        <div class="opt"><b>普段のChromeに同居</b><span>拡張機能。ログイン済みの状態をそのまま使える</span>
+          <span class="chip ant">Claude in Chrome</span><span class="chip goo">Gemini in Chrome</span></div>
+        <div class="opt"><b>クラウド</b><span>離れた場所のブラウザ。大量・並列に強い(Browserbase など)</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="sub">※ 各製品の代表的な使い方のみ(実際は併用あり)。この整理で眺めると、<strong>みんなが欲しい組み合わせ</strong>が見えてくる → 後半へ</p>
+</section>
+
+<!-- 5: 右下の激戦区 -->
+<section class="slide">
+  <h2><span class="num">04</span>2軸で並べると、みんなが欲しい場所がわかる</h2>
+  <div class="matrix">
+    <div class="mlabel"></div>
+    <div class="mlabel"><b>特定のAI専用</b><br>(そのAIからしか使えない)</div>
+    <div class="mlabel"><b>どのAIからでも</b><br>(MCPで規格化)</div>
+    <div class="mlabel"><b>別のブラウザ</b><br>(普段のログイン状態とは別)</div>
+    <div class="mcell">
+      <span class="chip oai">ChatGPT Work</span>
+      <p>内蔵ブラウザをChatGPTだけが操作</p>
+    </div>
+    <div class="mcell">
+      <span class="chip ms">Playwright MCP</span><span class="chip goo">DevTools MCP</span>
+      <p>別環境のブラウザを起動。テスト・不具合調査の定番</p>
+    </div>
+    <div class="mlabel"><b>普段のChrome</b><br>(ログイン済み・今見てるタブ)</div>
+    <div class="mcell">
+      <span class="chip ant">Claude in Chrome</span><span class="chip goo">Gemini in Chrome</span>
+      <p>便利。ただしそのAI専用の閉じた世界</p>
+    </div>
+    <div class="mcell hl">
+      <span class="void">ここがいちばん欲しい場所</span>
+      <p>ログイン済みの今見てるタブを、どのAIからも触りたい。Playwright MCPも拡張モードで参入してきた激戦区</p>
+      <span class="chip ms">Playwright MCP(拡張モード)</span><span class="chip mine">chrome-dom-mcp ← 自作</span>
+    </div>
+  </div>
+  <p class="sub">→ ここを「<strong>常駐アプリ + 最小7ツール</strong>」という形で作ってみた</p>
+</section>
+
+<!-- 6: 構成 -->
+<section class="slide">
+  <h2><span class="num">05</span>chrome-dom-mcp の構成</h2>
+  <div style="display:flex; gap:4rem; align-items:center;">
+    <div class="diagram" style="flex:1;">
+      <div class="dbox">Codex / Claude Code</div>
+      <div class="darrow">↕ HTTP MCP :9333/mcp</div>
+      <div class="dbox hl">Bridge.app(メニューバー常駐)</div>
+      <div class="darrow">↕ WebSocket :9333/ws</div>
+      <div class="dbox">Chrome拡張</div>
+      <div class="darrow">↕ Chrome API</div>
+      <div class="dbox">いま開いているタブ</div>
+    </div>
+    <div style="flex:1;">
+      <ul>
+        <li>MCPの口は<strong>Bridge.app</strong>が持つ。エージェント側は接続先を1つ足すだけ</li>
+        <li>ブラウザ側は<strong>拡張機能</strong>。普段のChromeがそのまま使える</li>
+        <li>道具は7個だけ:</li>
+      </ul>
+      <p style="font-size:1.2rem; line-height:2.1; margin-top:1vh;">
+        <code>get_dom</code> <code>get_network</code> <code>get_console</code><br>
+        <code>click</code> <code>fill</code> <code>wait_for</code> <code>navigate</code>
+      </p>
+      <p class="sub">さっきの3つの選択で言うと: 目=DOM+Network+Console、手=セレクタ、場所=普段のChrome</p>
+    </div>
+  </div>
+</section>
+
+<!-- 7: デモ -->
+<section class="slide">
+  <h2><span class="num">06</span>デモ</h2>
+  <p style="font-size:1.7rem; line-height:2;">「いま開いているページのフォームを埋めて送信。<br>エラーが出たら原因を調べて報告して」</p>
+  <div class="flow">
+    <span class="step">get_dom</span><span class="fa">→</span>
+    <span class="step">fill</span><span class="fa">→</span>
+    <span class="step">click</span><span class="fa">→</span>
+    <span class="step">wait_for</span><span class="fa">→</span>
+    <span class="step">get_console</span><span class="fa">→</span>
+    <span class="step" style="font-family:inherit; color:var(--text);">原因を報告</span>
+  </div>
+  <p class="sub">見る → 操作する → <strong>人間に見えない裏側(Console)を確認する</strong> まで1タスクで</p>
+</section>
+
+<!-- リスク -->
+<section class="slide">
+  <h2><span class="num">07</span>リスク: ログイン済みブラウザを渡す = その権限ごと渡す</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>誤操作</h3>
+      <p>AIが削除・購入・送信ボタンを押してしまう事故。</p>
+      <p class="muted">対策: 大事な操作の前は人が確認。触らせるサイトを絞る。</p>
+    </div>
+    <div class="card">
+      <h3>ページの文字による乗っ取り</h3>
+      <p>ページ内に「これを読んだら◯◯して」と仕込むと、AIが<strong>命令として従ってしまう</strong>攻撃(プロンプトインジェクション)。</p>
+      <p class="muted">対策: 読んだ内容を命令扱いしない設計。権限を最小に。</p>
+    </div>
+    <div class="card">
+      <h3>実例: 今月の報道</h3>
+      <p>Claude in Chromeに未修正の欠陥 — <strong>悪意ある別の拡張機能</strong>がClaudeを操り、Gmail・カレンダーを読み出せる。</p>
+      <p class="muted">2026年7月時点で修正されないまま報道(通称 ClaudeBleed)。</p>
+    </div>
+  </div>
+  <p class="sub">大手でもこの状態。自作の chrome-dom-mcp も<strong>同じ注意が必要</strong> — 道具を7個に絞り、触るのは今見ているタブだけにしている</p>
+</section>
+
+<!-- まとめ -->
+<section class="slide">
+  <h2><span class="num">08</span>まとめ</h2>
+  <ul>
+    <li>ブラウザ×AIエージェントは<strong>目・手・場所の3択の組み合わせ</strong>。各社の違いはこの選び方の違い</li>
+    <li>使い分け: 自動テスト → <strong>Playwright MCP</strong> / 開発中の不具合調査 → <strong>DevTools MCP</strong> / ログインが要る日常作業 → <strong>普段のChrome同居型</strong></li>
+    <li>みんなが欲しい組み合わせは大手も参入してくる。それでも<strong>個人で作れる規模感</strong>。MCPにしておけばAIを選ばない</li>
+  </ul>
+  <p class="sub">興味ある人へ: リポジトリ chrome-dom-mcp。セットアップはBridge.appを開いて拡張を読み込むだけ</p>
+</section>
+
+<div class="footer"><span id="page">1</span> / <span id="total"></span></div>
+<div class="hint">← → キー / クリックで移動</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let cur = 0;
+  document.getElementById('total').textContent = slides.length;
+  function show(i) {
+    cur = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, j) => s.classList.toggle('active', j === cur));
+    document.getElementById('page').textContent = cur + 1;
+    history.replaceState(null, '', '#' + (cur + 1));
+  }
+  if (location.hash) show(parseInt(location.hash.slice(1), 10) - 1 || 0);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') show(cur + 1);
+    if (e.key === 'ArrowLeft') show(cur - 1);
+  });
+  document.addEventListener('click', e => {
+    show(e.clientX > innerWidth / 2 ? cur + 1 : cur - 1);
+  });
+</script>
+</body>
+</html>

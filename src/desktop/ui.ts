@@ -25,8 +25,7 @@ const HTML = `<!doctype html>
 
       <nav class="tabs" aria-label="Bridge">
         <button type="button" class="tab active" data-tab="status">現在</button>
-        <button type="button" class="tab" data-tab="setup">初期導入</button>
-        <button type="button" class="tab" data-tab="activity">デバッグ</button>
+        <button type="button" class="tab" data-tab="setup">MCP導入</button>
       </nav>
 
       <section class="tab-panel active" data-panel="status">
@@ -71,15 +70,6 @@ const HTML = `<!doctype html>
         <p id="setupMessage" class="message" role="status"></p>
       </section>
 
-      <section class="tab-panel" data-panel="activity" hidden>
-        <div class="activity-header">
-          <strong>直近のTool実行</strong>
-          <button id="refreshButton" class="icon-button" type="button" title="更新" aria-label="更新">
-            <svg viewBox="0 0 24 24"><path d="M20 6v5h-5M4 18v-5h5M6.1 9A7 7 0 0 1 18.5 6.5L20 11M4 13l1.5 4.5A7 7 0 0 0 17.9 15"/></svg>
-          </button>
-        </div>
-        <div id="activityList" class="activity-list"></div>
-      </section>
     </main>
     <script src="/app.js"></script>
   </body>
@@ -107,7 +97,7 @@ button { letter-spacing: 0; }
 .status-dot.ready { background: #20834d; box-shadow: 0 0 0 3px #e4f3e9; }
 .status-dot.warning { background: #b96712; box-shadow: 0 0 0 3px #fff0dd; }
 .status-dot.error { background: #c33b3b; box-shadow: 0 0 0 3px #fbe7e7; }
-.tabs { display: grid; grid-template-columns: repeat(3, 1fr); height: 44px; padding: 0 16px; border-bottom: 1px solid #e1e5ea; }
+.tabs { display: grid; grid-template-columns: repeat(2, 1fr); height: 44px; padding: 0 16px; border-bottom: 1px solid #e1e5ea; }
 .tab { position: relative; border: 0; color: #697386; background: transparent; cursor: pointer; font-size: 13px; font-weight: 650; }
 .tab.active { color: #173c36; }
 .tab.active::after { content: ""; position: absolute; left: 18px; right: 18px; bottom: -1px; height: 2px; background: #1d6f60; }
@@ -133,28 +123,16 @@ button { letter-spacing: 0; }
 .agent-list { border-top: 1px solid #e2e6eb; margin-top: 18px; }
 .command-button { display: inline-flex; align-items: center; gap: 6px; min-width: 82px; height: 34px; justify-content: center; color: #fff; border: 0; border-radius: 6px; background: #1d5f54; cursor: pointer; font-size: 12px; font-weight: 680; }
 .command-button span { margin: 0; color: inherit; font-size: 12px; }
-.command-button svg, .icon-button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.command-button svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .command-button:disabled { color: #7d8797; background: #e7eaee; cursor: default; }
 .message { min-height: 20px; margin: 14px 0 0; color: #495568; font-size: 12px; }
 .message.error { color: #ad2f2f; }
-.activity-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid #e2e6eb; font-size: 13px; }
-.icon-button { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; color: #4e596b; border: 1px solid #d7dce2; border-radius: 6px; background: #fff; cursor: pointer; }
-.activity-list { min-height: 160px; }
-.activity-row { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; min-height: 48px; border-bottom: 1px solid #e8ebef; }
-.activity-row strong { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
-.activity-row time, .empty { color: #727d8e; font-size: 12px; }
-.empty { padding: 32px 0; text-align: center; }
 `;
 
 const JAVASCRIPT = `
 const $ = (id) => document.getElementById(id);
 const tabs = [...document.querySelectorAll('[data-tab]')];
 const panels = [...document.querySelectorAll('[data-panel]')];
-const toolLabels = {
-  get_dom: 'get_dom', get_network: 'get_network', get_console: 'get_console',
-  click: 'click', fill: 'fill', wait_for: 'wait_for', navigate: 'navigate',
-  take_screenshot: 'take_screenshot'
-};
 
 tabs.forEach((tab) => tab.addEventListener('click', () => {
   tabs.forEach((item) => item.classList.toggle('active', item === tab));
@@ -176,21 +154,6 @@ async function requestJson(path, options) {
   return body;
 }
 
-function formatTime(value) {
-  if (!value) return '未実行';
-  return new Intl.DateTimeFormat('ja-JP', {
-    hour: '2-digit', minute: '2-digit', second: '2-digit'
-  }).format(new Date(value));
-}
-
-function renderActivity(calls) {
-  const entries = Object.entries(calls || {}).sort((a, b) => b[1].localeCompare(a[1]));
-  $('activityList').innerHTML = entries.length === 0
-    ? '<p class="empty">Tool実行履歴はありません</p>'
-    : entries.map(([name, time]) => '<div class="activity-row"><strong>' +
-        (toolLabels[name] || name) + '</strong><time>' + formatTime(time) + '</time></div>').join('');
-}
-
 async function refreshStatus() {
   try {
     const status = await requestJson('/api/status');
@@ -200,7 +163,6 @@ async function refreshStatus() {
     $('mcpStatus').textContent = '待受中';
     $('headerSummary').textContent = connected ? '利用できます' : 'Chrome拡張を待っています';
     $('headerDot').className = 'status-dot ' + (connected ? 'ready' : 'warning');
-    renderActivity(status.lastToolCalls);
   } catch (error) {
     $('bridgeStatus').textContent = 'エラー';
     $('extensionStatus').textContent = '未接続';
@@ -257,7 +219,6 @@ async function registerAgent(agent) {
 
 $('codexButton').addEventListener('click', () => registerAgent('codex'));
 $('claudeButton').addEventListener('click', () => registerAgent('claude'));
-$('refreshButton').addEventListener('click', refreshStatus);
 $('loginToggle').addEventListener('change', async (event) => {
   event.target.disabled = true;
   try {
