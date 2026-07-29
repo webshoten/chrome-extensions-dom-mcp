@@ -1,11 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"
   viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2"
   stroke-linecap="round" stroke-linejoin="round">
-  <!-- Lucide: cable -->
-  <path d="M17 6.1H3" />
-  <path d="M21 12.1H3" />
-  <path d="M15.1 18H3" />
-  <path d="M18 4l2 2.1L18 8.2" />
-  <path d="M18 10l2 2.1-2 2.1" />
-  <path d="M18 16l2 2-2 2" />
+  <!-- terminal and browser windows joined by a bridge arc (matches app icon) -->
+  <rect x="1.5" y="10" width="9" height="8.5" rx="1.5" />
+  <path d="M4 13l2.2 1.7L4 16.4" />
+  <rect x="13.5" y="10" width="9" height="8.5" rx="1.5" />
+  <path d="M13.5 13h9" />
+  <path d="M6 10C6 3.5 18 3.5 18 10" />
 </svg>

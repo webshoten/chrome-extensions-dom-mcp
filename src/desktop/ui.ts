@@ -14,7 +14,7 @@ const HTML = `<!doctype html>
     <main class="app-shell">
       <header class="app-header">
         <div class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M17 6.1H3M21 12.1H3M15.1 18H3M18 4l2 2.1-2 2M18 10l2 2.1-2 2M18 16l2 2-2 2"/></svg>
+          <svg viewBox="0 0 24 24"><rect x="1.5" y="10" width="9" height="8.5" rx="1.5"/><path d="M4 13l2.2 1.7L4 16.4"/><rect x="13.5" y="10" width="9" height="8.5" rx="1.5"/><path d="M13.5 13h9"/><path d="M6 10C6 3.5 18 3.5 18 10"/></svg>
         </div>
         <div class="brand-copy">
           <h1>Bridge</h1>

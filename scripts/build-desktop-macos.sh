@@ -28,6 +28,7 @@ rm -rf "${DIST_DIR}/Bridge.app"
   --allow-run \
   --include=src/desktop/assets/tray-icon.png \
   --include=src/desktop/assets/tray-icon-dark.png \
+  --icon src/desktop/assets/app-icon.png \
   --output "${DIST_DIR}/Bridge.app" \
   src/desktop/main.ts
 
