@@ -15,6 +15,7 @@ export type BridgeMessage = {
 
 // MCPから公開し、daemon経由でChrome拡張へ送れるbrowser tool名です。
 export type BrowserToolName =
+  | "list_tabs"
   | "get_dom"
   | "get_network"
   | "get_console"
@@ -23,6 +24,11 @@ export type BrowserToolName =
   | "wait_for"
   | "navigate"
   | "take_screenshot";
+
+// list_tabsで取得した一時targetを、後続のDOM取得へ引き渡します。
+export type GetDOMInput = {
+  targetId?: string;
+};
 
 // Network履歴をAIのデバッグ用途で検索・要約するための入力です。
 export type NetworkQuery = {

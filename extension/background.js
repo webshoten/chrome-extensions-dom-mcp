@@ -26,6 +26,7 @@ let reconnectTimer = null;
 let nextMessageId = 1;
 
 const TOOL_HANDLERS = {
+  list_tabs: () => globalThis.BridgeActiveTab.listTabs(),
   get_dom: (payload) => globalThis.BridgeDomTools.captureDOM(payload),
   get_network: (payload) => globalThis.BridgeNetworkTools.getNetwork(payload),
   get_console: (payload) => globalThis.BridgeConsoleTools.getConsole(payload),

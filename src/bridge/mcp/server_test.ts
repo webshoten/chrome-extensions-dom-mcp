@@ -33,6 +33,7 @@ Deno.test("handleRequest lists tools", async () => {
   };
   assertEquals(response.error, undefined);
   assertEquals(result.tools.map((tool) => tool.name), [
+    "list_tabs",
     "get_dom",
     "get_network",
     "get_console",
@@ -64,6 +65,29 @@ Deno.test("handleRequest calls get_dom tool", async () => {
   assertEquals(response.error, undefined);
   assertEquals(getter.calls, [{ name: "get_dom", payload: {} }]);
   assertEquals(result.content[0].text, `{"html":"<html></html>"}`);
+});
+
+Deno.test("handleRequest passes get_dom targetId to the browser runner", async () => {
+  const getter = new FakeBrowserGetter({
+    get_dom: `{"html":"<html></html>"}`,
+  });
+  const response = await handleRequest(getter, {
+    jsonrpc: "2.0",
+    id: 20,
+    method: "tools/call",
+    params: {
+      name: "get_dom",
+      arguments: {
+        targetId: "page:browser-example:42",
+      },
+    },
+  });
+
+  assertEquals(response.error, undefined);
+  assertEquals(getter.calls, [{
+    name: "get_dom",
+    payload: { targetId: "page:browser-example:42" },
+  }]);
 });
 
 Deno.test("handleRequest calls get_network tool", async () => {

@@ -31,6 +31,7 @@ function textResponse(message: string, status = 200): Response {
 }
 
 const BROWSER_TOOLS = new Set<BrowserToolName>([
+  "list_tabs",
   "get_dom",
   "get_network",
   "get_console",

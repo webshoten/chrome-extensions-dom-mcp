@@ -22,7 +22,8 @@ Chrome拡張
 
 ## MCP tools
 
-- `get_dom`: 現在タブのDOMを取得する
+- `list_tabs`: 開いているChrome window/tabと一時的な`targetId`を取得する
+- `get_dom`: `targetId`で指定したタブ、または現在タブのDOMを取得する
 - `get_network`: Network履歴を検索する
 - `get_console`: Consoleとページエラーを取得する
 - `click`: 要素をクリックする
@@ -32,7 +33,7 @@ Chrome拡張
 
 ## 開発
 
-Deno 2.9.2以上を使用します。
+Deno 2.9.7以上を使用します。
 
 ```bash
 deno task check

@@ -1,9 +1,70 @@
-import type { BridgeMessage, BrowserToolName } from "../protocol/types.ts";
+import type {
+  BridgeMessage,
+  BrowserToolName,
+  GetDOMInput,
+} from "../protocol/types.ts";
 import { WebSocketBridge } from "./ws_bridge.ts";
 
 // WebSocket上でtool request/responseを対応付けるため、tool名を含む一意なidを作ります。
 function buildRequestId(prefix: string): string {
   return `${prefix}-${Date.now()}-${crypto.randomUUID()}`;
+}
+
+type BrowserBridge = Pick<WebSocketBridge, "request" | "requestAll">;
+
+type ExtensionTab = {
+  tabId: number;
+  active: boolean;
+  pinned: boolean;
+  url: string;
+  title: string;
+};
+
+type ExtensionWindow = {
+  windowId: number;
+  focused: boolean;
+  incognito: boolean;
+  type: string;
+  tabs: ExtensionTab[];
+};
+
+type ExtensionTabList = {
+  windows: ExtensionWindow[];
+};
+
+type ListedWindow = Omit<ExtensionWindow, "tabs"> & {
+  browserId: string;
+  tabs: Array<ExtensionTab & { targetId: string }>;
+};
+
+function isExtensionTabList(value: unknown): value is ExtensionTabList {
+  return typeof value === "object" && value !== null &&
+    Array.isArray((value as Partial<ExtensionTabList>).windows);
+}
+
+function buildTargetId(clientId: string, tabId: number): string {
+  return `page:${clientId}:${tabId}`;
+}
+
+function parseTargetId(payload: unknown):
+  | { clientId: string; tabId: number }
+  | undefined {
+  const input = typeof payload === "object" && payload !== null
+    ? payload as GetDOMInput
+    : {};
+  if (input.targetId === undefined) {
+    return undefined;
+  }
+  if (typeof input.targetId !== "string") {
+    throw new Error("targetId must be a string");
+  }
+
+  const match = /^page:(browser-[^:]+):(\d+)$/.exec(input.targetId);
+  const tabId = match ? Number(match[2]) : Number.NaN;
+  if (!match || !Number.isSafeInteger(tabId)) {
+    throw new Error("invalid targetId; call list_tabs again");
+  }
+  return { clientId: match[1], tabId };
 }
 
 /*
@@ -16,22 +77,70 @@ function buildRequestId(prefix: string): string {
  * daemonはDOMやConsoleを直接読まない。Chrome APIが必要な処理はWebSocket経由で拡張へ渡す。
  */
 export class BrowserService {
-  constructor(private readonly bridge: WebSocketBridge) {}
+  constructor(private readonly bridge: BrowserBridge) {}
 
   async callTool(
     name: BrowserToolName,
     payload: unknown,
     signal: AbortSignal,
   ): Promise<unknown> {
-    const response = await this.bridge.request({
-      id: buildRequestId(name.replaceAll("_", "-")),
-      type: name,
-      payload,
-    }, signal);
+    if (name === "list_tabs") {
+      return await this.#listTabs(signal);
+    }
+
+    const target = name === "get_dom" ? parseTargetId(payload) : undefined;
+    const response = await this.bridge.request(
+      {
+        id: buildRequestId(name.replaceAll("_", "-")),
+        type: name,
+        payload: name === "get_dom"
+          ? target ? { tabId: target.tabId } : {}
+          : payload,
+      },
+      signal,
+      target?.clientId,
+    );
     if (response.error) {
       throw new Error(`${response.error.code}: ${response.error.message}`);
     }
     return response.payload;
+  }
+
+  async #listTabs(signal: AbortSignal): Promise<unknown> {
+    const responses = await this.bridge.requestAll({
+      id: buildRequestId("list-tabs"),
+      type: "list_tabs",
+      payload: {},
+    }, signal);
+    const windows: ListedWindow[] = [];
+    let firstError: BridgeMessage["error"];
+
+    for (const { clientId, message } of responses) {
+      if (message.error) {
+        firstError ??= message.error;
+        continue;
+      }
+      if (!isExtensionTabList(message.payload)) {
+        throw new Error("invalid list_tabs response from chrome extension");
+      }
+
+      for (const browserWindow of message.payload.windows) {
+        windows.push({
+          ...browserWindow,
+          browserId: clientId,
+          tabs: browserWindow.tabs.map((tab) => ({
+            ...tab,
+            targetId: buildTargetId(clientId, tab.tabId),
+          })),
+        });
+      }
+    }
+
+    if (windows.length === 0 && firstError) {
+      throw new Error(`${firstError.code}: ${firstError.message}`);
+    }
+    windows.sort((left, right) => Number(right.focused) - Number(left.focused));
+    return { windows };
   }
 }
 

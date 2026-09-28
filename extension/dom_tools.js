@@ -8,8 +8,8 @@
    * ## 説明
    * daemon/DenoはDOMへ直接アクセスできないため、Chrome APIで対象タブ内にscriptを実行する。
    */
-  async function captureDOM() {
-    const tab = await globalThis.BridgeActiveTab.getActiveTab();
+  async function captureDOM(input) {
+    const tab = await globalThis.BridgeActiveTab.getTargetTab(input?.tabId);
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: () => ({

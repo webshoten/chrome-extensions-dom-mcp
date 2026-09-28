@@ -25,10 +25,26 @@ const emptyObjectSchema = {
 // AI Agentに見せる公開tool一覧です。実行本体ではなく、外部I/Fの契約だけをここに置きます。
 export const MCP_TOOLS: MCPToolDefinition[] = [
   {
+    name: "list_tabs",
+    description:
+      "List open Chrome windows and tabs. Returns a temporary targetId for explicit DOM capture.",
+    inputSchema: emptyObjectSchema,
+  },
+  {
     name: "get_dom",
     description:
-      "Capture the active Chrome tab DOM through the connected extension.",
-    inputSchema: emptyObjectSchema,
+      "Capture a Chrome tab DOM. Pass a targetId from list_tabs, or omit it to use the active tab.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        targetId: {
+          type: "string",
+          description:
+            "Temporary tab target returned by list_tabs. Omit to use the active tab.",
+        },
+      },
+      additionalProperties: false,
+    },
   },
   {
     name: "get_network",
