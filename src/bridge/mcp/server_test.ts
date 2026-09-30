@@ -38,6 +38,8 @@ Deno.test("handleRequest lists tools", async () => {
     "get_network",
     "get_console",
     "click",
+    "double_click",
+    "drag",
     "fill",
     "wait_for",
     "navigate",
@@ -150,6 +152,85 @@ Deno.test("handleRequest calls click tool", async () => {
     },
   }]);
   assertEquals(result.content[0].text, `{"action":"click","ok":true}`);
+});
+
+Deno.test("handleRequest passes double-click target and modifiers", async () => {
+  const getter = new FakeBrowserGetter({
+    double_click: `{"action":"double_click","ok":true}`,
+  });
+  const response = await handleRequest(getter, {
+    jsonrpc: "2.0",
+    id: 22,
+    method: "tools/call",
+    params: {
+      name: "double_click",
+      arguments: {
+        targetId: "page:browser-example:42",
+        x: 480,
+        y: 260,
+        modifiers: ["Meta"],
+        intervalMs: 80,
+      },
+    },
+  });
+
+  const result = response.result as {
+    content: Array<{ text: string }>;
+  };
+  assertEquals(response.error, undefined);
+  assertEquals(getter.calls, [{
+    name: "double_click",
+    payload: {
+      targetId: "page:browser-example:42",
+      x: 480,
+      y: 260,
+      modifiers: ["Meta"],
+      intervalMs: 80,
+    },
+  }]);
+  assertEquals(
+    result.content[0].text,
+    `{"action":"double_click","ok":true}`,
+  );
+});
+
+Deno.test("handleRequest passes drag locations and modifiers", async () => {
+  const getter = new FakeBrowserGetter({
+    drag: `{"action":"drag","ok":true}`,
+  });
+  const response = await handleRequest(getter, {
+    jsonrpc: "2.0",
+    id: 21,
+    method: "tools/call",
+    params: {
+      name: "drag",
+      arguments: {
+        targetId: "page:browser-example:42",
+        source: { selector: "[data-card-id='42']" },
+        destination: { x: 640, y: 320 },
+        modifiers: ["Meta", "Shift"],
+        durationMs: 800,
+        steps: 20,
+      },
+    },
+  });
+
+  const result = response.result as {
+    content: Array<{ text: string }>;
+  };
+  assertEquals(response.error, undefined);
+  assertEquals(getter.calls, [{
+    name: "drag",
+    payload: {
+      targetId: "page:browser-example:42",
+      source: { selector: "[data-card-id='42']" },
+      destination: { x: 640, y: 320 },
+      modifiers: ["Meta", "Shift"],
+      durationMs: 800,
+      steps: 20,
+    },
+  }]);
+  assertEquals(result.content[0].text, `{"action":"drag","ok":true}`);
 });
 
 Deno.test("handleRequest returns screenshot as MCP image content", async () => {

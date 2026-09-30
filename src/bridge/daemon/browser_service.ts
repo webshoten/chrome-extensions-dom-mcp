@@ -1,9 +1,5 @@
-import type {
-  BridgeMessage,
-  BrowserToolName,
-  GetDOMInput,
-} from "../protocol/types.ts";
-import { WebSocketBridge } from "./ws_bridge.ts";
+import type { BridgeMessage, BrowserToolName } from "../protocol/types.ts";
+import type { WebSocketBridge } from "./ws_bridge.ts";
 
 // WebSocket上でtool request/responseを対応付けるため、tool名を含む一意なidを作ります。
 function buildRequestId(prefix: string): string {
@@ -37,6 +33,16 @@ type ListedWindow = Omit<ExtensionWindow, "tabs"> & {
   tabs: Array<ExtensionTab & { targetId: string }>;
 };
 
+type TargetInput = {
+  targetId?: unknown;
+};
+
+const TARGETABLE_TOOLS = new Set<BrowserToolName>([
+  "get_dom",
+  "double_click",
+  "drag",
+]);
+
 function isExtensionTabList(value: unknown): value is ExtensionTabList {
   return typeof value === "object" && value !== null &&
     Array.isArray((value as Partial<ExtensionTabList>).windows);
@@ -50,7 +56,7 @@ function parseTargetId(payload: unknown):
   | { clientId: string; tabId: number }
   | undefined {
   const input = typeof payload === "object" && payload !== null
-    ? payload as GetDOMInput
+    ? payload as TargetInput
     : {};
   if (input.targetId === undefined) {
     return undefined;
@@ -65,6 +71,22 @@ function parseTargetId(payload: unknown):
     throw new Error("invalid targetId; call list_tabs again");
   }
   return { clientId: match[1], tabId };
+}
+
+function routePayload(
+  name: BrowserToolName,
+  payload: unknown,
+  target: { tabId: number } | undefined,
+): unknown {
+  if (name === "get_dom") {
+    return target ? { tabId: target.tabId } : {};
+  }
+  if (!target || typeof payload !== "object" || payload === null) {
+    return payload;
+  }
+
+  const { targetId: _targetId, ...input } = payload as Record<string, unknown>;
+  return { ...input, tabId: target.tabId };
 }
 
 /*
@@ -88,14 +110,14 @@ export class BrowserService {
       return await this.#listTabs(signal);
     }
 
-    const target = name === "get_dom" ? parseTargetId(payload) : undefined;
+    const target = TARGETABLE_TOOLS.has(name)
+      ? parseTargetId(payload)
+      : undefined;
     const response = await this.bridge.request(
       {
         id: buildRequestId(name.replaceAll("_", "-")),
         type: name,
-        payload: name === "get_dom"
-          ? target ? { tabId: target.tabId } : {}
-          : payload,
+        payload: routePayload(name, payload, target),
       },
       signal,
       target?.clientId,

@@ -124,6 +124,57 @@ Deno.test("BrowserService routes get_dom to the target connection and tab", asyn
   assertEquals(bridge.requests[0].message.payload, { tabId: 22 });
 });
 
+Deno.test("BrowserService routes pointer actions to one connection and tab", async () => {
+  const bridge = new FakeBridge();
+  const service = new BrowserService(bridge);
+  await service.callTool(
+    "drag",
+    {
+      targetId: "page:browser-second:22",
+      source: { x: 10, y: 20 },
+      destination: { x: 30, y: 40 },
+      modifiers: ["Shift"],
+    },
+    new AbortController().signal,
+  );
+  await service.callTool(
+    "double_click",
+    {
+      targetId: "page:browser-second:22",
+      selector: "[data-test='item']",
+    },
+    new AbortController().signal,
+  );
+
+  assertEquals(
+    bridge.requests.map((request) => ({
+      clientId: request.clientId,
+      type: request.message.type,
+      payload: request.message.payload,
+    })),
+    [
+      {
+        clientId: "browser-second",
+        type: "drag",
+        payload: {
+          source: { x: 10, y: 20 },
+          destination: { x: 30, y: 40 },
+          modifiers: ["Shift"],
+          tabId: 22,
+        },
+      },
+      {
+        clientId: "browser-second",
+        type: "double_click",
+        payload: {
+          selector: "[data-test='item']",
+          tabId: 22,
+        },
+      },
+    ],
+  );
+});
+
 Deno.test("BrowserService rejects malformed target IDs", async () => {
   const service = new BrowserService(new FakeBridge());
   await assertRejects(

@@ -36,6 +36,8 @@ const BROWSER_TOOLS = new Set<BrowserToolName>([
   "get_network",
   "get_console",
   "click",
+  "double_click",
+  "drag",
   "fill",
   "wait_for",
   "navigate",

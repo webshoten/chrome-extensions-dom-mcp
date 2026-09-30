@@ -22,6 +22,62 @@ const emptyObjectSchema = {
   additionalProperties: false,
 };
 
+const pointerLocationSchema = {
+  type: "object",
+  properties: {
+    selector: {
+      type: "string",
+      description: "CSS selector for the pointer location.",
+    },
+    text: {
+      type: "string",
+      description: "Visible text to find when selector is omitted.",
+    },
+    exact: {
+      type: "boolean",
+      description: "Require exact text match.",
+    },
+    visibleOnly: {
+      type: "boolean",
+      description: "Ignore hidden elements. Defaults to true.",
+    },
+    x: {
+      type: "number",
+      minimum: 0,
+      description: "Viewport X coordinate. Must be used with y.",
+    },
+    y: {
+      type: "number",
+      minimum: 0,
+      description: "Viewport Y coordinate. Must be used with x.",
+    },
+  },
+  anyOf: [
+    { required: ["selector"] },
+    { required: ["text"] },
+    { required: ["x", "y"] },
+  ],
+  additionalProperties: false,
+};
+
+const modifierKeysSchema = {
+  type: "array",
+  items: {
+    type: "string",
+    enum: ["Alt", "Control", "Meta", "Shift"],
+  },
+  uniqueItems: true,
+  maxItems: 4,
+  description:
+    "Modifier keys held during the action. Meta is Command on macOS.",
+};
+
+const targetIdSchema = {
+  type: "string",
+  description:
+    "Temporary tab target returned by list_tabs. Omit to use the active tab.",
+};
+
 // AI Agentに見せる公開tool一覧です。実行本体ではなく、外部I/Fの契約だけをここに置きます。
 export const MCP_TOOLS: MCPToolDefinition[] = [
   {
@@ -37,11 +93,7 @@ export const MCP_TOOLS: MCPToolDefinition[] = [
     inputSchema: {
       type: "object",
       properties: {
-        targetId: {
-          type: "string",
-          description:
-            "Temporary tab target returned by list_tabs. Omit to use the active tab.",
-        },
+        targetId: targetIdSchema,
       },
       additionalProperties: false,
     },
@@ -149,6 +201,60 @@ export const MCP_TOOLS: MCPToolDefinition[] = [
         visibleOnly: {
           type: "boolean",
           description: "Ignore hidden elements. Defaults to true.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "double_click",
+    description:
+      "Double-click an element or viewport coordinate in the active Chrome tab. Supports modifier keys.",
+    inputSchema: {
+      ...pointerLocationSchema,
+      properties: {
+        ...pointerLocationSchema.properties,
+        targetId: targetIdSchema,
+        modifiers: modifierKeysSchema,
+        intervalMs: {
+          type: "integer",
+          minimum: 0,
+          maximum: 500,
+          description:
+            "Delay between the two clicks in milliseconds. Defaults to 80.",
+        },
+      },
+    },
+  },
+  {
+    name: "drag",
+    description:
+      "Drag between elements or viewport coordinates in the active Chrome tab. Supports Shift, Alt, Control, and Meta (Command on macOS).",
+    inputSchema: {
+      type: "object",
+      required: ["source", "destination"],
+      properties: {
+        targetId: targetIdSchema,
+        source: {
+          ...pointerLocationSchema,
+          description: "Drag start location.",
+        },
+        destination: {
+          ...pointerLocationSchema,
+          description: "Drag end location.",
+        },
+        modifiers: modifierKeysSchema,
+        durationMs: {
+          type: "integer",
+          minimum: 0,
+          maximum: 5000,
+          description: "Drag duration in milliseconds. Defaults to 500.",
+        },
+        steps: {
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
+          description: "Number of pointer move events. Defaults to 12.",
         },
       },
       additionalProperties: false,

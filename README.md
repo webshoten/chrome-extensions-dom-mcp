@@ -27,6 +27,8 @@ Chrome拡張
 - `get_network`: Network履歴を検索する
 - `get_console`: Consoleとページエラーを取得する
 - `click`: 要素をクリックする
+- `double_click`: `targetId`で指定したタブの要素または座標をダブルクリックする
+- `drag`: `targetId`で指定したタブをドラッグする。Shift/Command等のmodifier併用にも対応
 - `fill`: 入力要素へ値を入れる
 - `wait_for`: 要素またはテキストを待つ
 - `navigate`: 現在タブを遷移する
