@@ -8,7 +8,7 @@
 | MCP HTTP | MCP初期化、tool一覧、tool実行request/response |
 | Browser service | MCP toolをChrome拡張向けmessageへ変換 |
 | WebSocket bridge | Chrome拡張接続、request ID対応、timeout |
-| Chrome拡張 | Chrome API実行、Network/Console履歴、将来のCDP接続 |
+| Chrome拡張 | Chrome API実行、Network/Console履歴、drag用CDP接続 |
 | ページ実行スクリプト | DOM取得、click、fill、wait、navigate |
 
 MCP、WebSocket、Chrome API、ページ実行の境界を混ぜない。

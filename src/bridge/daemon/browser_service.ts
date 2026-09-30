@@ -113,6 +113,9 @@ export class BrowserService {
     const target = TARGETABLE_TOOLS.has(name)
       ? parseTargetId(payload)
       : undefined;
+    if ((name === "drag" || name === "double_click") && !target) {
+      throw new Error(`targetId is required for ${name}; call list_tabs again`);
+    }
     const response = await this.bridge.request(
       {
         id: buildRequestId(name.replaceAll("_", "-")),

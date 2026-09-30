@@ -4,6 +4,7 @@ importScripts(
   "network_tools.js",
   "console_tools.js",
   "action_tools.js",
+  "drag_tools.js",
   "screenshot_tools.js",
 );
 
@@ -32,7 +33,7 @@ const TOOL_HANDLERS = {
   get_console: (payload) => globalThis.BridgeConsoleTools.getConsole(payload),
   click: (payload) => globalThis.BridgeActionTools.click(payload),
   double_click: (payload) => globalThis.BridgeActionTools.doubleClick(payload),
-  drag: (payload) => globalThis.BridgeActionTools.drag(payload),
+  drag: (payload) => globalThis.BridgeDragTools.drag(payload),
   fill: (payload) => globalThis.BridgeActionTools.fill(payload),
   wait_for: (payload) => globalThis.BridgeActionTools.waitFor(payload),
   navigate: (payload) => globalThis.BridgeActionTools.navigate(payload),
@@ -97,6 +98,15 @@ function sendMessage(message) {
 async function handleRequest(message) {
   const handler = TOOL_HANDLERS[message.type];
   if (!handler) {
+    sendMessage({
+      id: message.id,
+      type: "error",
+      error: {
+        code: "UNKNOWN_TOOL",
+        message:
+          `unsupported browser tool: ${message.type}; reload the Chrome extension`,
+      },
+    });
     return;
   }
 

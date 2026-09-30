@@ -209,9 +209,10 @@ export const MCP_TOOLS: MCPToolDefinition[] = [
   {
     name: "double_click",
     description:
-      "Double-click an element or viewport coordinate in the active Chrome tab. Supports modifier keys.",
+      "Double-click an element or viewport coordinate in the Chrome tab selected by list_tabs. Supports modifier keys.",
     inputSchema: {
       ...pointerLocationSchema,
+      required: ["targetId"],
       properties: {
         ...pointerLocationSchema.properties,
         targetId: targetIdSchema,
@@ -229,10 +230,10 @@ export const MCP_TOOLS: MCPToolDefinition[] = [
   {
     name: "drag",
     description:
-      "Drag between elements or viewport coordinates in the active Chrome tab. Supports Shift, Alt, Control, and Meta (Command on macOS).",
+      "Drag with Chrome DevTools input between elements or viewport coordinates in the tab selected by list_tabs. Supports Shift, Alt, Control, and Meta (Command on macOS).",
     inputSchema: {
       type: "object",
-      required: ["source", "destination"],
+      required: ["targetId", "source", "destination"],
       properties: {
         targetId: targetIdSchema,
         source: {

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Chrome Bridge MCP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Connects the active Chrome profile to the local Bridge helper.",
   "minimum_chrome_version": "116",
   "background": {
@@ -40,6 +40,7 @@
   },
   "permissions": [
     "alarms",
+    "debugger",
     "scripting",
     "tabs",
     "webRequest"

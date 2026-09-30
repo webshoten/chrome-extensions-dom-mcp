@@ -23,7 +23,8 @@
 - `dom_tools.js`: DOM取得
 - `network_tools.js`: Network履歴とredaction
 - `console_tools.js`: Console履歴
-- `action_tools.js`: click、fill、wait、navigate
+- `action_tools.js`: click、double click、fill、wait、navigate
+- `drag_tools.js`: `chrome.debugger`とCDPによるmodifier対応drag
 
 Chrome API実行は拡張側、MCPと状態管理はDesktop app側へ置く。
-将来のCDPは拡張内の`chrome.debugger`を通し、Desktop appから直接Chrome profileへ接続しない。
+CDPは拡張内の`chrome.debugger`を通し、Desktop appから直接Chrome profileへ接続しない。

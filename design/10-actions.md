@@ -17,8 +17,8 @@ React/Vue等のイベント発火、待機、リトライ、操作前確認を�
 初期実装では、アクティブタブに対して以下のMCP toolを公開する。
 
 - `click`: CSS selectorまたは表示テキストで要素をクリックする
-- `double_click`: selector、表示テキスト、またはviewport座標をダブルクリックする。`targetId`でタブを指定できる
-- `drag`: selector、表示テキスト、またはviewport座標間をドラッグする。`targetId`とmodifier keyを併用できる
+- `double_click`: selector、表示テキスト、またはviewport座標をダブルクリックする。`list_tabs`で取得した`targetId`を必須とする
+- `drag`: selector、表示テキスト、またはviewport座標間へCDPのマウス入力を送る。`list_tabs`で取得した`targetId`とmodifier keyを併用できる
 - `fill`: input/textarea/select/contenteditableへ値を入れる
 - `wait_for`: selectorまたは表示テキストが現れる/隠れるまで待つ
 - `navigate`: アクティブタブをhttp/https URLへ遷移する

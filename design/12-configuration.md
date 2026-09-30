@@ -29,7 +29,7 @@ Network系機能は段階的に有効化する。
 - 除外ドメイン
 - 許可ドメイン
 - body previewの最大byte数
-- `chrome.debugger`/CDP詳細モード
+- Network取得用CDP詳細モード
 
 推奨初期値:
 
@@ -46,7 +46,7 @@ Network系機能は段階的に有効化する。
 ```
 
 標準の`get_network`でもredactionは必須とし、raw headers/raw bodyを返す設定は持たない。
-CDP詳細モードはChromeの`debugger`権限を伴うため、別設定として明示的に有効化する。
+拡張は`drag`に`debugger`権限を使うが、Network取得用CDP詳細モードは別設定として明示的に有効化する。
 
 ## 残す検討項目
 

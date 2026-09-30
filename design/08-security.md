@@ -34,10 +34,11 @@ Chrome拡張権限は機能段階ごとに増やす。
 - DOM取得: `scripting`、`tabs`
 - Networkデバッグレポート: `webRequest`
 - request body / headers preview拡張: `webRequest`追加オプション、必要に応じて`webRequestBlocking`
-- DevTools級詳細: `debugger`
+- CDP dragとDevTools級詳細: `debugger`
 
 `debugger`権限はユーザーに強く見える権限であり、Chrome上にもデバッグ中表示が出る可能性がある。
-そのため初期状態では使わず、将来の詳細モードとして明示的に有効化する。
+現在は`drag`の対象として明示されたタブへ操作中だけattachし、成功・失敗にかかわらずdetachする。
+Network response body等の詳細取得には使わず、その用途は将来の詳細モードとして別途明示的に有効化する。
 
 ## 残す検討項目
 

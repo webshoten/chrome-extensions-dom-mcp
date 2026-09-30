@@ -3,7 +3,7 @@
    * # 操作系browser tools
    *
    * ## 目的
-   * AI Agentが現在タブ上でクリック、ダブルクリック、ドラッグ、入力、待機、URL遷移を実行できるようにする。
+   * AI Agentが現在タブ上でクリック、ダブルクリック、入力、待機、URL遷移を実行できるようにする。
    *
    * ## 説明
    * DOM操作はページ内で実行する必要があるため、backgroundから対象タブへscriptを注入して実行する。
@@ -236,7 +236,7 @@
       };
     }
 
-    function resolveDragLocation(locator, label) {
+    function resolvePointerLocation(locator, label) {
       if (!locator || typeof locator !== "object") {
         throw new Error(`${label} is required`);
       }
@@ -328,21 +328,6 @@
       target.dispatchEvent(new MouseEvent(mouseType, init));
     }
 
-    function dispatchDragEvent(
-      target,
-      type,
-      point,
-      modifiers,
-      dataTransfer,
-    ) {
-      target.dispatchEvent(
-        new DragEvent(type, {
-          ...pointerInit(point, modifiers, 1, 0),
-          dataTransfer,
-        }),
-      );
-    }
-
     function dispatchModifierEvent(target, type, modifier, activeModifiers) {
       const keyDetails = {
         Alt: { code: "AltLeft", keyCode: 18 },
@@ -390,7 +375,7 @@
     }
 
     async function doubleClickElement() {
-      const location = resolveDragLocation(input, "target");
+      const location = resolvePointerLocation(input, "target");
       const modifiers = normalizeModifiers(input.modifiers);
       const intervalMs = boundedInteger(
         input.intervalMs,
@@ -463,211 +448,6 @@
           element: describeElement(point.element),
         };
       } finally {
-        releaseModifierKeys(keyboardTarget, pressedModifiers);
-      }
-    }
-
-    // debugger権限を増やさず、一般的なPointer/Mouse/HTML5 DnDの各listenerへ同じ軌跡を届けます。
-    async function dragElement() {
-      const sourceLocation = resolveDragLocation(input.source, "source");
-      const destinationLocation = resolveDragLocation(
-        input.destination,
-        "destination",
-      );
-      const modifiers = normalizeModifiers(input.modifiers);
-      const steps = boundedInteger(input.steps, 12, 1, 100, "steps");
-      const durationMs = boundedInteger(
-        input.durationMs,
-        500,
-        0,
-        5_000,
-        "durationMs",
-      );
-
-      if (sourceLocation.kind === "element") {
-        sourceLocation.element.scrollIntoView({
-          block: "center",
-          inline: "center",
-        });
-      }
-      if (destinationLocation.kind === "element") {
-        const rect = destinationLocation.element.getBoundingClientRect();
-        const inViewport = rect.left >= 0 && rect.top >= 0 &&
-          rect.right <= globalThis.innerWidth &&
-          rect.bottom <= globalThis.innerHeight;
-        if (!inViewport) {
-          destinationLocation.element.scrollIntoView({
-            block: "nearest",
-            inline: "nearest",
-          });
-        }
-      }
-
-      const start = locationPoint(sourceLocation, "source");
-      const end = locationPoint(destinationLocation, "destination");
-      if (typeof start.element.focus === "function") {
-        start.element.focus({ preventScroll: true });
-      }
-
-      const keyboardTarget = document.activeElement || document.body ||
-        document.documentElement;
-      const pressedModifiers = pressModifierKeys(keyboardTarget, modifiers);
-      let lastPoint = start;
-      let lastTarget = start.eventTarget;
-      let pointerActive = false;
-      let dragActive = false;
-      let dataTransfer;
-      try {
-        dataTransfer = new DataTransfer();
-      } catch (_error) {
-        dataTransfer = undefined;
-      }
-
-      try {
-        dispatchPointerAndMouse(
-          lastTarget,
-          "pointerdown",
-          "mousedown",
-          start,
-          modifiers,
-          1,
-          0,
-        );
-        pointerActive = true;
-        dispatchDragEvent(
-          start.eventTarget,
-          "dragstart",
-          start,
-          modifiers,
-          dataTransfer,
-        );
-        dragActive = true;
-
-        const delayMs = durationMs / steps;
-        for (let step = 1; step <= steps; step += 1) {
-          if (delayMs > 0) {
-            await new Promise((resolve) => setTimeout(resolve, delayMs));
-          }
-          const progress = step / steps;
-          const point = {
-            x: start.x + (end.x - start.x) * progress,
-            y: start.y + (end.y - start.y) * progress,
-          };
-          const moveTarget = document.elementFromPoint(point.x, point.y) ||
-            lastTarget;
-
-          dispatchPointerAndMouse(
-            moveTarget,
-            "pointermove",
-            "mousemove",
-            point,
-            modifiers,
-            1,
-            -1,
-          );
-          if (moveTarget !== lastTarget) {
-            dispatchDragEvent(
-              lastTarget,
-              "dragleave",
-              point,
-              modifiers,
-              dataTransfer,
-            );
-            dispatchDragEvent(
-              moveTarget,
-              "dragenter",
-              point,
-              modifiers,
-              dataTransfer,
-            );
-          }
-          dispatchDragEvent(
-            moveTarget,
-            "dragover",
-            point,
-            modifiers,
-            dataTransfer,
-          );
-          lastPoint = point;
-          lastTarget = moveTarget;
-        }
-
-        const finalTarget = document.elementFromPoint(end.x, end.y) ||
-          end.eventTarget;
-        dispatchDragEvent(
-          finalTarget,
-          "drop",
-          end,
-          modifiers,
-          dataTransfer,
-        );
-        dispatchPointerAndMouse(
-          finalTarget,
-          "pointerup",
-          "mouseup",
-          end,
-          modifiers,
-          0,
-          0,
-        );
-        pointerActive = false;
-        dispatchDragEvent(
-          start.eventTarget,
-          "dragend",
-          end,
-          modifiers,
-          dataTransfer,
-        );
-        dragActive = false;
-
-        return {
-          action: "drag",
-          ok: true,
-          actedAt: new Date().toISOString(),
-          eventMode: "synthetic",
-          modifiers,
-          steps,
-          durationMs,
-          source: {
-            x: start.x,
-            y: start.y,
-            element: describeElement(start.element),
-          },
-          destination: {
-            x: end.x,
-            y: end.y,
-            element: describeElement(end.element),
-          },
-        };
-      } finally {
-        if (pointerActive) {
-          try {
-            dispatchPointerAndMouse(
-              lastTarget,
-              "pointerup",
-              "mouseup",
-              lastPoint,
-              modifiers,
-              0,
-              0,
-            );
-          } catch (_error) {
-            // 元の操作エラーを優先します。
-          }
-        }
-        if (dragActive) {
-          try {
-            dispatchDragEvent(
-              start.eventTarget,
-              "dragend",
-              lastPoint,
-              modifiers,
-              dataTransfer,
-            );
-          } catch (_error) {
-            // 元の操作エラーを優先します。
-          }
-        }
         releaseModifierKeys(keyboardTarget, pressedModifiers);
       }
     }
@@ -768,8 +548,6 @@
         return clickElement();
       case "double_click":
         return await doubleClickElement();
-      case "drag":
-        return await dragElement();
       case "fill":
         return fillElement();
       case "wait_for":
@@ -789,11 +567,6 @@
       { name: "double_click", input: pageInput },
       tabId,
     );
-  }
-
-  async function drag(input) {
-    const { tabId, pageInput } = splitTargetTab(input);
-    return await runPageCommand({ name: "drag", input: pageInput }, tabId);
   }
 
   async function fill(input) {
@@ -847,7 +620,6 @@
   globalThis.BridgeActionTools = {
     click,
     doubleClick,
-    drag,
     fill,
     waitFor,
     navigate,

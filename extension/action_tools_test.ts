@@ -13,10 +13,9 @@ type ScriptOptions = {
 
 type ActionTools = {
   doubleClick: (input: unknown) => Promise<Record<string, unknown>>;
-  drag: (input: unknown) => Promise<Record<string, unknown>>;
 };
 
-Deno.test("pointer actions send locations and modifiers to the active tab", async () => {
+Deno.test("double-click sends its location and modifiers to the target tab", async () => {
   const testGlobal = globalThis as typeof globalThis & {
     chrome?: unknown;
     BridgeActiveTab?: unknown;
@@ -62,7 +61,7 @@ Deno.test("pointer actions send locations and modifiers to the active tab", asyn
             result: {
               action: command.name,
               ok: true,
-              modifiers: command.name === "drag" ? ["Meta", "Shift"] : ["Meta"],
+              modifiers: ["Meta"],
             },
           }]);
         },
@@ -70,34 +69,6 @@ Deno.test("pointer actions send locations and modifiers to the active tab", asyn
     };
 
     await import("./action_tools.js");
-    const input = {
-      source: { selector: "[data-card-id='42']" },
-      destination: { x: 640, y: 320 },
-      modifiers: ["Meta", "Shift"],
-      durationMs: 800,
-      steps: 20,
-      tabId: 42,
-    };
-    const result = await testGlobal.BridgeActionTools?.drag(input);
-
-    assert(receivedOptions);
-    assertEquals(receivedTabId, 42);
-    assertEquals(receivedOptions.target, { tabId: 42 });
-    assertEquals(typeof receivedOptions.func, "function");
-    const { tabId: _dragTabId, ...dragPageInput } = input;
-    assertEquals(receivedOptions.args, [{
-      name: "drag",
-      input: dragPageInput,
-    }]);
-    assertEquals(result, {
-      tabId: 42,
-      url: "https://example.com/board",
-      title: "Board",
-      action: "drag",
-      ok: true,
-      modifiers: ["Meta", "Shift"],
-    });
-
     const doubleClickInput = {
       x: 480,
       y: 260,

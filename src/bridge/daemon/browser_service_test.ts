@@ -188,3 +188,24 @@ Deno.test("BrowserService rejects malformed target IDs", async () => {
     "invalid targetId",
   );
 });
+
+Deno.test("BrowserService requires target IDs for pointer actions", async () => {
+  const service = new BrowserService(new FakeBridge());
+  for (const name of ["double_click", "drag"] as const) {
+    await assertRejects(
+      () =>
+        service.callTool(
+          name,
+          name === "drag"
+            ? {
+              source: { x: 10, y: 20 },
+              destination: { x: 30, y: 40 },
+            }
+            : { x: 10, y: 20 },
+          new AbortController().signal,
+        ),
+      Error,
+      `targetId is required for ${name}`,
+    );
+  }
+});

@@ -59,6 +59,7 @@ Shiftキーを押しながら座標間をドラッグ:
 
 ```json
 {
+  "targetId": "page:browser-550e8400-e29b-41d4-a716-446655440000:42",
   "source": { "x": 240, "y": 320 },
   "destination": { "x": 640, "y": 320 },
   "modifiers": ["Shift"],
@@ -78,19 +79,20 @@ MCP click/double_click/drag/fill/wait_for/navigate
   → bridge daemon
   → WebSocket { type: "<toolName>", payload: input }
   → Chrome拡張 background service worker
-  → chrome.scripting.executeScript または chrome.tabs.update
+  → chrome.scripting.executeScript / chrome.debugger または chrome.tabs.update
   → MCP response
 ```
 
-操作本体は`extension/action_tools.js`に置く。
+通常操作は`extension/action_tools.js`、CDP dragは`extension/drag_tools.js`に置く。
 MCP層とdaemon層はtool名とpayloadを中継するだけにする。
 
 ## 現在の制限
 
-- `double_click`と`drag`は`list_tabs`の`targetId`で対象タブを固定できる。省略時はアクティブタブを使う。
+- `double_click`と`drag`は`list_tabs`の`targetId`を必須とし、対象タブとChrome profileを固定する。
 - その他の操作系toolはアクティブウィンドウのアクティブタブを対象にする。
 - `click`、`fill`、`wait_for`はselector/text指定のみ。`double_click`と`drag`はviewport座標も指定できる。
-- `double_click`と`drag`はPointerEvent、MouseEvent、KeyboardEventをページ内で合成し、`drag`ではDragEventも発火する。`isTrusted`を要求するサイトでは反応しない場合がある。
-- OSの実マウスポインターは移動しない。CDPによるtrusted inputは`debugger`権限を伴うため未使用。
+- `double_click`はPointerEvent、MouseEvent、KeyboardEventをページ内で合成する。`isTrusted`を要求するサイトでは反応しない場合がある。
+- `drag`は`chrome.debugger`からCDP `Input.dispatchMouseEvent`と`Input.dispatchKeyEvent`を送り、操作終了時にdetachする。DevTools等が同じタブへ接続中の場合はattachに失敗する。
+- `drag`でもOSの実マウスポインターは移動しない。
 - `navigate`は`http`/`https`だけ許可する。
 - 重要操作の確認UIは未実装。
